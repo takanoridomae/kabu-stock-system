@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block title %}ホーム - 株式検索システム{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <!-- ヘッダーセクション -->
+        <div class="jumbotron bg-light p-5 rounded mb-4">
+            <h1 class="display-4">株式検索システム</h1>
+            <p class="lead">株価に関連する指標やデータを効率的に検索し、登録・管理するシステムです。</p>
+            <hr class="my-4">
+            <p>PBR、PER、自己資本比率などの財務指標と、株価の統計情報を一元管理できます。</p>
+            <a class="btn btn-primary btn-lg" href="{{ url_for('web.search') }}" role="button">
+                <i class="fas fa-search me-2"></i>検索を開始
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- 機能説明カード -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-search fa-3x text-primary mb-3"></i>
+                <h5 class="card-title">高度な検索機能</h5>
+                <p class="card-text">
+                    企業名、株式コード、業種などの複数条件での検索が可能です。
+                    財務指標やテクニカル分析データも同時に取得できます。
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-database fa-3x text-success mb-3"></i>
+                <h5 class="card-title">データ管理</h5>
+                <p class="card-text">
+                    検索結果を簡単にデータベースに登録できます。
+                    履歴データや統計情報も自動的に更新されます。
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-chart-bar fa-3x text-info mb-3"></i>
+                <h5 class="card-title">データ分析</h5>
+                <p class="card-text">
+                    月間・年間・過去最高値などの価格統計や、
+                    PBR・PER等の財務指標を一覧で確認できます。
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 最近の企業データ -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-building me-2"></i>登録済み企業データ
+                </h5>
+                <button class="btn btn-sm btn-outline-primary" onclick="loadRecentCompanies()">
+                    <i class="fas fa-sync-alt me-1"></i>更新
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="recentCompaniesLoading" class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">読み込み中...</span>
+                    </div>
+                    <p class="mt-2">企業データを読み込み中...</p>
+                </div>
+                <div id="recentCompaniesTable" style="display: none;">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>企業コード</th>
+                                    <th>企業名</th>
+                                    <th>業種</th>
+                                    <th>市場</th>
+                                    <th>現在株価</th>
+                                    <th>PBR</th>
+                                    <th>PER</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentCompaniesBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="noCompaniesMessage" style="display: none;" class="text-center text-muted">
+                    <i class="fas fa-info-circle me-2"></i>
+                    まだ企業データが登録されていません。検索ページで企業を検索して登録してください。
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- クイックアクションボタン -->
+<div class="row mt-4">
+    <div class="col-md-12 text-center">
+        <div class="btn-group" role="group">
+            <a href="{{ url_for('web.search') }}" class="btn btn-outline-primary">
+                <i class="fas fa-search me-1"></i>企業検索
+            </a>
+            <button class="btn btn-outline-success" onclick="exportData()">
+                <i class="fas fa-download me-1"></i>データエクスポート
+            </button>
+            <button class="btn btn-outline-info" onclick="showImportModal()">
+                <i class="fas fa-upload me-1"></i>データインポート
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- インポートモーダル -->
+<div class="modal fade" id="importModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">データインポート</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="importFile" class="form-label">JSONファイルを選択</label>
+                    <input type="file" class="form-control" id="importFile" accept=".json">
+                    <div class="form-text">エクスポートしたJSONファイルをインポートできます。</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" onclick="importData()">インポート</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ページ読み込み時に最近の企業データを取得
+document.addEventListener('DOMContentLoaded', function() {
+    loadRecentCompanies();
+});
+
+function loadRecentCompanies() {
+    const loadingDiv = document.getElementById('recentCompaniesLoading');
+    const tableDiv = document.getElementById('recentCompaniesTable');
+    const noDataDiv = document.getElementById('noCompaniesMessage');
+    
+    loadingDiv.style.display = 'block';
+    tableDiv.style.display = 'none';
+    noDataDiv.style.display = 'none';
+    
+    fetch('/api/companies')
+        .then(response => response.json())
+        .then(data => {
+            loadingDiv.style.display = 'none';
+            
+            if (data.success && data.data.length > 0) {
+                displayRecentCompanies(data.data.slice(0, 10)); // 最新10件
+                tableDiv.style.display = 'block';
+            } else {
+                noDataDiv.style.display = 'block';
+            }
+        })
+        .catch(error => {
+            loadingDiv.style.display = 'none';
+            noDataDiv.style.display = 'block';
+            console.error('Error:', error);
+        });
+}
+
+function displayRecentCompanies(companies) {
+    const tbody = document.getElementById('recentCompaniesBody');
+    tbody.innerHTML = '';
+    
+    companies.forEach(company => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><strong>${company.symbol}</strong></td>
+            <td>${company.name}</td>
+            <td>${company.sector || '-'}</td>
+            <td>${company.market || '-'}</td>
+            <td>${company.current_price ? '¥' + company.current_price.toLocaleString() : '-'}</td>
+            <td>${company.pbr ? company.pbr.toFixed(2) : '-'}</td>
+            <td>${company.per ? company.per.toFixed(2) : '-'}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-info" onclick="viewCompanyDetail(${company.id})">
+                    <i class="fas fa-eye"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function viewCompanyDetail(companyId) {
+    // 企業詳細ページに遷移（将来的に実装）
+    showAlert('企業詳細機能は今後実装予定です。', 'info');
+}
+
+function showImportModal() {
+    const modal = new bootstrap.Modal(document.getElementById('importModal'));
+    modal.show();
+}
+
+function importData() {
+    const fileInput = document.getElementById('importFile');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        showAlert('ファイルを選択してください。', 'warning');
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const jsonData = JSON.parse(e.target.result);
+            
+            fetch('/api/import', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(jsonData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(data.message, 'success');
+                    loadRecentCompanies(); // 企業一覧を更新
+                    
+                    // モーダルを閉じる
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('importModal'));
+                    modal.hide();
+                } else {
+                    showAlert('インポートに失敗しました: ' + data.error, 'danger');
+                }
+            })
+            .catch(error => {
+                showAlert('インポート中にエラーが発生しました: ' + error.message, 'danger');
+            });
+        } catch (error) {
+            showAlert('JSONファイルの形式が正しくありません。', 'danger');
+        }
+    };
+    
+    reader.readAsText(file);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,71 @@
+{
+  "companies": [
+    {
+      "id": 1,
+      "symbol": "7203",
+      "name": "トヨタ自動車",
+      "sector": "輸送用機器",
+      "market": "東証プライム",
+      "created_at": "2025-08-18 02:07:09",
+      "updated_at": "2025-08-18 02:07:09"
+    },
+    {
+      "id": 2,
+      "symbol": "6758",
+      "name": "ソニーグループ",
+      "sector": "電気機器",
+      "market": "東証プライム",
+      "created_at": "2025-08-18 02:07:09",
+      "updated_at": "2025-08-18 02:07:09"
+    },
+    {
+      "id": 3,
+      "symbol": "9984",
+      "name": "ソフトバンクグループ",
+      "sector": "情報・通信業",
+      "market": "東証プライム",
+      "created_at": "2025-08-18 02:07:09",
+      "updated_at": "2025-08-18 02:07:09"
+    },
+    {
+      "id": 4,
+      "symbol": "6861",
+      "name": "キーエンス",
+      "sector": "電気機器",
+      "market": "東証プライム",
+      "created_at": "2025-08-18 02:07:09",
+      "updated_at": "2025-08-18 02:07:09"
+    },
+    {
+      "id": 5,
+      "symbol": "4519",
+      "name": "中外製薬",
+      "sector": "医薬品",
+      "market": "東証プライム",
+      "created_at": "2025-08-18 02:07:09",
+      "updated_at": "2025-08-18 02:07:09"
+    },
+    {
+      "id": 6,
+      "symbol": "TEST",
+      "name": "テスト企業",
+      "sector": "テスト業種",
+      "market": "テスト市場",
+      "created_at": "2025-08-18 02:11:38",
+      "updated_at": "2025-08-18 02:11:38"
+    }
+  ],
+  "stock_prices": [
+    {
+      "id": 1,
+      "company_id": 6,
+      "price": 1000,
+      "price_date": "2025-08-18",
+      "volume": 100000,
+      "created_at": "2025-08-18 02:11:38"
+    }
+  ],
+  "financial_metrics": [],
+  "price_statistics": [],
+  "technical_indicators": []
+}

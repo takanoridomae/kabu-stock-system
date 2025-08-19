@@ -1,0 +1,453 @@
+{% extends "base.html" %}
+
+{% block title %}検索 - 株式検索システム{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2><i class="fas fa-search me-2"></i>株式検索</h2>
+        <p class="text-muted">企業名、株式コード、業種などで検索できます。</p>
+    </div>
+</div>
+
+<!-- 検索フォーム -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-filter me-2"></i>検索条件</h5>
+            </div>
+            <div class="card-body">
+                <form id="searchForm">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="symbolSearch" class="form-label">企業コード</label>
+                            <input type="text" class="form-control" id="symbolSearch" 
+                                   placeholder="例: 7203">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="companyNameSearch" class="form-label">企業名</label>
+                            <input type="text" class="form-control" id="companyNameSearch" 
+                                   placeholder="例: トヨタ">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="sectorSearch" class="form-label">業種</label>
+                            <input type="text" class="form-control" id="sectorSearch" 
+                                   placeholder="例: 輸送用機器">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <button type="submit" class="btn btn-primary me-2">
+                                <i class="fas fa-search me-1"></i>検索
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="clearSearchForm()">
+                                <i class="fas fa-times me-1"></i>クリア
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 検索結果 -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-list me-2"></i>検索結果</h5>
+                <div>
+                    <span id="resultCount" class="badge bg-secondary">-</span>
+                    <button class="btn btn-sm btn-outline-success ms-2" onclick="registerSelectedCompanies()" 
+                            id="registerBtn" style="display: none;">
+                        <i class="fas fa-save me-1"></i>選択した企業を登録
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- 検索前の状態 -->
+                <div id="noSearchState" class="text-center text-muted">
+                    <i class="fas fa-search fa-3x mb-3"></i>
+                    <p>上の検索フォームで条件を入力して検索してください。</p>
+                </div>
+                
+                <!-- 検索中の状態 -->
+                <div id="searchingState" style="display: none;" class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">検索中...</span>
+                    </div>
+                    <p class="mt-2">検索中...</p>
+                </div>
+                
+                <!-- 検索結果テーブル -->
+                <div id="searchResults" style="display: none;">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>
+                                        <input type="checkbox" id="selectAll" onchange="toggleAllSelection()">
+                                    </th>
+                                    <th>企業コード</th>
+                                    <th>企業名</th>
+                                    <th>業種</th>
+                                    <th>市場</th>
+                                    <th>現在株価</th>
+                                    <th>PBR</th>
+                                    <th>PER</th>
+                                    <th>自己資本比率</th>
+                                    <th>月間最安値</th>
+                                    <th>月間最高値</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="searchResultsBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- 検索結果なし -->
+                <div id="noResultsState" style="display: none;" class="text-center text-muted">
+                    <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                    <p>検索条件に一致する企業が見つかりませんでした。</p>
+                    <p class="small">検索条件を変更して再度お試しください。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 企業登録モーダル -->
+<div class="modal fade" id="registerModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">企業データ登録</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="registerForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="regSymbol" class="form-label">企業コード <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="regSymbol" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="regName" class="form-label">企業名 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="regName" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="regSector" class="form-label">業種</label>
+                            <input type="text" class="form-control" id="regSector">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="regMarket" class="form-label">市場</label>
+                            <input type="text" class="form-control" id="regMarket">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="regPrice" class="form-label">株価</label>
+                            <input type="number" step="0.01" class="form-control" id="regPrice">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="regVolume" class="form-label">出来高</label>
+                            <input type="number" class="form-control" id="regVolume">
+                        </div>
+                    </div>
+                    
+                    <h6 class="mt-4 mb-3">財務指標</h6>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="regPbr" class="form-label">PBR</label>
+                            <input type="number" step="0.01" class="form-control" id="regPbr">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="regPer" class="form-label">PER</label>
+                            <input type="number" step="0.01" class="form-control" id="regPer">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="regEquityRatio" class="form-label">自己資本比率</label>
+                            <input type="number" step="0.01" class="form-control" id="regEquityRatio">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="regRoe" class="form-label">ROE</label>
+                            <input type="number" step="0.01" class="form-control" id="regRoe">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="regRoa" class="form-label">ROA</label>
+                            <input type="number" step="0.01" class="form-control" id="regRoa">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" onclick="registerCompany()">登録</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let searchResultsData = [];
+
+// 検索フォームのイベントリスナー
+document.getElementById('searchForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    performSearch();
+});
+
+function performSearch() {
+    const symbol = document.getElementById('symbolSearch').value.trim();
+    const companyName = document.getElementById('companyNameSearch').value.trim();
+    const sector = document.getElementById('sectorSearch').value.trim();
+    
+    // 全て空の場合は検索しない
+    if (!symbol && !companyName && !sector) {
+        showAlert('検索条件を入力してください。', 'warning');
+        return;
+    }
+    
+    // UI状態の更新
+    document.getElementById('noSearchState').style.display = 'none';
+    document.getElementById('searchingState').style.display = 'block';
+    document.getElementById('searchResults').style.display = 'none';
+    document.getElementById('noResultsState').style.display = 'none';
+    
+    const searchData = {
+        symbol: symbol,
+        company_name: companyName,
+        sector: sector
+    };
+    
+    fetch('/api/companies/search', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(searchData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('searchingState').style.display = 'none';
+        
+        if (data.success && data.data.length > 0) {
+            searchResultsData = data.data;
+            displaySearchResults(data.data);
+            document.getElementById('searchResults').style.display = 'block';
+            document.getElementById('resultCount').textContent = data.count + '件';
+        } else {
+            document.getElementById('noResultsState').style.display = 'block';
+            document.getElementById('resultCount').textContent = '0件';
+        }
+    })
+    .catch(error => {
+        document.getElementById('searchingState').style.display = 'none';
+        document.getElementById('noResultsState').style.display = 'block';
+        showAlert('検索中にエラーが発生しました: ' + error.message, 'danger');
+        console.error('Error:', error);
+    });
+}
+
+function displaySearchResults(companies) {
+    const tbody = document.getElementById('searchResultsBody');
+    tbody.innerHTML = '';
+    
+    companies.forEach((company, index) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>
+                <input type="checkbox" class="company-checkbox" value="${index}" onchange="updateRegisterButton()">
+            </td>
+            <td><strong>${company.symbol}</strong></td>
+            <td>${company.name}</td>
+            <td>${company.sector || '-'}</td>
+            <td>${company.market || '-'}</td>
+            <td>${company.current_price ? '¥' + company.current_price.toLocaleString() : '-'}</td>
+            <td>${company.pbr ? company.pbr.toFixed(2) : '-'}</td>
+            <td>${company.per ? company.per.toFixed(2) : '-'}</td>
+            <td>${company.equity_ratio ? (company.equity_ratio * 100).toFixed(1) + '%' : '-'}</td>
+            <td>${company.monthly_min ? '¥' + company.monthly_min.toLocaleString() : '-'}</td>
+            <td>${company.monthly_max ? '¥' + company.monthly_max.toLocaleString() : '-'}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary" onclick="openRegisterModal(${index})">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function clearSearchForm() {
+    document.getElementById('searchForm').reset();
+    document.getElementById('noSearchState').style.display = 'block';
+    document.getElementById('searchResults').style.display = 'none';
+    document.getElementById('noResultsState').style.display = 'none';
+    document.getElementById('resultCount').textContent = '-';
+    document.getElementById('registerBtn').style.display = 'none';
+}
+
+function toggleAllSelection() {
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('.company-checkbox');
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = selectAll.checked;
+    });
+    
+    updateRegisterButton();
+}
+
+function updateRegisterButton() {
+    const checkedBoxes = document.querySelectorAll('.company-checkbox:checked');
+    const registerBtn = document.getElementById('registerBtn');
+    
+    if (checkedBoxes.length > 0) {
+        registerBtn.style.display = 'inline-block';
+    } else {
+        registerBtn.style.display = 'none';
+    }
+}
+
+function openRegisterModal(index) {
+    const company = searchResultsData[index];
+    
+    // フォームに企業データを設定
+    document.getElementById('regSymbol').value = company.symbol;
+    document.getElementById('regName').value = company.name;
+    document.getElementById('regSector').value = company.sector || '';
+    document.getElementById('regMarket').value = company.market || '';
+    document.getElementById('regPrice').value = company.current_price || '';
+    document.getElementById('regVolume').value = company.volume || '';
+    document.getElementById('regPbr').value = company.pbr || '';
+    document.getElementById('regPer').value = company.per || '';
+    document.getElementById('regEquityRatio').value = company.equity_ratio || '';
+    document.getElementById('regRoe').value = company.roe || '';
+    document.getElementById('regRoa').value = company.roa || '';
+    
+    const modal = new bootstrap.Modal(document.getElementById('registerModal'));
+    modal.show();
+}
+
+function registerCompany() {
+    const formData = {
+        symbol: document.getElementById('regSymbol').value.trim(),
+        name: document.getElementById('regName').value.trim(),
+        sector: document.getElementById('regSector').value.trim(),
+        market: document.getElementById('regMarket').value.trim(),
+        price: document.getElementById('regPrice').value ? parseFloat(document.getElementById('regPrice').value) : null,
+        volume: document.getElementById('regVolume').value ? parseInt(document.getElementById('regVolume').value) : null,
+        pbr: document.getElementById('regPbr').value ? parseFloat(document.getElementById('regPbr').value) : null,
+        per: document.getElementById('regPer').value ? parseFloat(document.getElementById('regPer').value) : null,
+        equity_ratio: document.getElementById('regEquityRatio').value ? parseFloat(document.getElementById('regEquityRatio').value) : null,
+        roe: document.getElementById('regRoe').value ? parseFloat(document.getElementById('regRoe').value) : null,
+        roa: document.getElementById('regRoa').value ? parseFloat(document.getElementById('regRoa').value) : null
+    };
+    
+    if (!formData.symbol || !formData.name) {
+        showAlert('企業コードと企業名は必須です。', 'warning');
+        return;
+    }
+    
+    fetch('/api/companies/register', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert(data.message, 'success');
+            
+            // モーダルを閉じる
+            const modal = bootstrap.Modal.getInstance(document.getElementById('registerModal'));
+            modal.hide();
+            
+            // フォームをリセット
+            document.getElementById('registerForm').reset();
+        } else {
+            showAlert('登録に失敗しました: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        showAlert('登録中にエラーが発生しました: ' + error.message, 'danger');
+        console.error('Error:', error);
+    });
+}
+
+function registerSelectedCompanies() {
+    const checkedBoxes = document.querySelectorAll('.company-checkbox:checked');
+    const selectedCompanies = Array.from(checkedBoxes).map(checkbox => 
+        searchResultsData[parseInt(checkbox.value)]
+    );
+    
+    if (selectedCompanies.length === 0) {
+        showAlert('登録する企業を選択してください。', 'warning');
+        return;
+    }
+    
+    let registeredCount = 0;
+    let errors = [];
+    
+    const registerNext = (index) => {
+        if (index >= selectedCompanies.length) {
+            // 全て完了
+            if (errors.length === 0) {
+                showAlert(`${registeredCount}件の企業を正常に登録しました。`, 'success');
+            } else {
+                showAlert(`${registeredCount}件を登録しました。${errors.length}件でエラーが発生しました。`, 'warning');
+            }
+            return;
+        }
+        
+        const company = selectedCompanies[index];
+        const formData = {
+            symbol: company.symbol,
+            name: company.name,
+            sector: company.sector || '',
+            market: company.market || '',
+            price: company.current_price,
+            pbr: company.pbr,
+            per: company.per,
+            equity_ratio: company.equity_ratio
+        };
+        
+        fetch('/api/companies/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                registeredCount++;
+            } else {
+                errors.push(`${company.name}: ${data.error}`);
+            }
+            registerNext(index + 1);
+        })
+        .catch(error => {
+            errors.push(`${company.name}: ${error.message}`);
+            registerNext(index + 1);
+        });
+    };
+    
+    registerNext(0);
+}
+</script>
+{% endblock %}
