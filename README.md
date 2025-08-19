@@ -18,42 +18,61 @@
 ## 🛠 技術スタック
 
 - **フロントエンド**: HTML5, CSS3, JavaScript, Bootstrap 5
-- **バックエンド**: Python 3.8+, Flask
+- **バックエンド**: Python 3.8+, Flask 2.3.3
 - **データベース**: SQLite3
+- **Web Server**: Gunicorn 21.2.0
+- **環境管理**: python-dotenv
+- **CORS対応**: Flask-CORS 4.0.0
 - **デプロイ**: Render対応
+- **バージョン管理**: Git
 
 ## 📁 プロジェクト構造
 
 ```
 kabu/
+├── .gitignore                 # Git無視ファイル設定
 ├── app.py                      # Flaskエントリポイント
 ├── requirements.txt            # Python依存関係
-├── README.md                  # プロジェクト概要
-├── pronput.md                 # システム仕様書
-├── frontend/                  # フロントエンド
-│   ├── static/               # 静的ファイル
-│   │   ├── css/
-│   │   │   └── style.css     # カスタムスタイル
-│   │   └── js/
-│   │       └── common.js     # 共通JavaScript
-│   └── templates/            # HTMLテンプレート
-│       ├── base.html         # ベーステンプレート
-│       ├── index.html        # ホームページ
-│       └── search.html       # 検索ページ
-├── backend/                   # バックエンド
-│   ├── models/               # データベースモデル
+├── README.md                   # プロジェクト概要
+├── pronput.md                  # システム仕様書
+├── backend/                    # バックエンド
+│   ├── app_factory.py         # アプリケーションファクトリー
+│   ├── middleware/            # ミドルウェア
 │   │   ├── __init__.py
-│   │   └── database.py       # DB管理クラス
-│   └── routes/               # APIルーティング
+│   │   └── error_handlers.py  # エラーハンドラー
+│   ├── models/                # データベースモデル
+│   │   ├── __init__.py
+│   │   └── database.py        # DB管理クラス
+│   ├── routes/                # APIルーティング
+│   │   ├── __init__.py
+│   │   ├── api.py             # APIエンドポイント
+│   │   └── web.py             # Webルーティング
+│   └── utils/                 # ユーティリティ
 │       ├── __init__.py
-│       └── api.py           # APIエンドポイント
-├── database/                 # データベース関連
-│   ├── schema.sql           # 初期スキーマ
-│   ├── migrations/          # マイグレーション
-│   └── backup/              # バックアップ
-├── jsonfile/                # エクスポートファイル
-├── docs/                    # ドキュメント
-└── grah/                    # グラフ図のスクリーンショット
+│       └── database_utils.py  # データベースユーティリティ
+├── config/                     # 設定管理
+│   ├── __init__.py
+│   └── settings.py            # アプリケーション設定
+├── frontend/                   # フロントエンド
+│   ├── static/                # 静的ファイル
+│   │   ├── css/
+│   │   │   └── style.css      # カスタムスタイル
+│   │   └── js/
+│   │       └── common.js      # 共通JavaScript
+│   └── templates/             # HTMLテンプレート
+│       ├── base.html          # ベーステンプレート
+│       ├── index.html         # ホームページ
+│       └── search.html        # 検索ページ
+├── database/                   # データベース関連
+│   ├── schema.sql             # 初期スキーマ
+│   ├── kabu_system.db         # SQLiteデータベース
+│   ├── migrations/            # マイグレーション
+│   └── backup/                # バックアップ
+├── jsonfile/                   # エクスポートファイル
+│   ├── kabu_data_export_*.json # データエクスポートファイル
+├── docs/                       # ドキュメント
+├── grah/                       # グラフ図のスクリーンショット
+└── venv/                       # Python仮想環境
 ```
 
 ## 🚀 セットアップ・実行方法
@@ -62,13 +81,15 @@ kabu/
 
 - Python 3.8以上
 - pip (Pythonパッケージマネージャー)
+- Git (バージョン管理)
+- ブラウザ（Chrome、Firefox、Safari、Edge等）
 
 ### 2. インストール
 
 ```bash
 # リポジトリをクローン
-git clone <repository-url>
-cd kabu
+git clone https://github.com/takanoridomae/kabu-stock-system.git
+cd kabu-stock-system
 
 # 仮想環境を作成（推奨）
 python -m venv venv
@@ -251,4 +272,5 @@ if os.getenv('FLASK_ENV') == 'production':
 ---
 
 **開発者**: 株式検索システム開発チーム  
-**最終更新**: 2024年
+**最終更新**: 2025年1月  
+**リポジトリ**: [GitHub](https://github.com/takanoridomae/kabu-stock-system)
