@@ -5,7 +5,8 @@ import os
 import sys
 
 # プロジェクトルートをパスに追加
-sys.path.append(os.path.dirname(__file__))
+from backend.utils.path_utils import setup_project_path
+setup_project_path()
 
 # アプリケーションファクトリーのインポート
 from backend.app_factory import create_app

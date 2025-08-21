@@ -5,8 +5,8 @@ import os
 import sys
 
 # プロジェクトルートをパスに追加
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-sys.path.insert(0, project_root)
+from backend.utils.path_utils import setup_project_path
+setup_project_path()
 
 # データベースモデルのインポート
 from backend.models.database import (
