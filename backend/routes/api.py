@@ -3,10 +3,14 @@ from datetime import datetime
 import json
 import os
 import sys
+import logging
 
 # プロジェクトルートをパスに追加
 from backend.utils.path_utils import setup_project_path
 setup_project_path()
+
+# ロガーの設定
+logger = logging.getLogger(__name__)
 
 # データベースモデルのインポート
 from backend.models.database import (
@@ -142,9 +146,29 @@ def get_company_detail(company_id):
         price_history = stock_price_model.get_price_history(company_id, 30)
         company_data['price_history'] = [dict(price) for price in price_history]
         
-        # 財務指標
+        # 財務指標（売上高・営業利益があるデータを優先取得）
         latest_metrics = financial_metrics_model.get_latest_metrics(company_id)
         company_data['financial_metrics'] = dict(latest_metrics) if latest_metrics else None
+        
+        # 売上高・営業利益がある財務データを取得（古いデータでも含める）
+        if latest_metrics and (latest_metrics['net_sales'] is None or latest_metrics['operating_profit'] is None):
+            # 売上高・営業利益がある過去のデータを検索
+            all_metrics_query = """
+            SELECT * FROM financial_metrics 
+            WHERE company_id = ? AND (net_sales IS NOT NULL OR operating_profit IS NOT NULL)
+            ORDER BY report_date DESC 
+            LIMIT 1
+            """
+            historical_metrics = db_manager.execute_query(all_metrics_query, (company_id,))
+            if historical_metrics:
+                historical_data = dict(historical_metrics[0])
+                # 売上高・営業利益を最新データに追加
+                if latest_metrics['net_sales'] is None and historical_data.get('net_sales'):
+                    company_data['financial_metrics']['net_sales'] = historical_data['net_sales']
+                    company_data['financial_metrics']['net_sales_date'] = historical_data['report_date']
+                if latest_metrics['operating_profit'] is None and historical_data.get('operating_profit'):
+                    company_data['financial_metrics']['operating_profit'] = historical_data['operating_profit']
+                    company_data['financial_metrics']['operating_profit_date'] = historical_data['report_date']
         
         # テクニカル指標
         latest_indicators = technical_indicators_model.get_latest_indicators(company_id)
@@ -207,11 +231,13 @@ def register_company():
             price_statistics_model.update_statistics(company_id, 'all_time', 'all')
         
         # 財務指標の登録（旧形式：下位互換性のため）
-        financial_fields = ['pbr', 'per', 'equity_ratio', 'roe', 'roa']
+        financial_fields = ['pbr', 'per', 'equity_ratio', 'roe', 'roa', 'net_sales', 'operating_profit']
         if any(field in data for field in financial_fields):
             metrics = {field: data.get(field) for field in financial_fields}
+            # report_dateが指定されていない場合は、price_dateを使用
+            report_date = data.get('report_date') or data.get('price_date')
             financial_metrics_model.create(
-                company_id, data.get('report_date'), **metrics
+                company_id, report_date, **metrics
             )
         
         # テクニカル指標の登録（旧形式：下位互換性のため）
@@ -1214,6 +1240,301 @@ def load_and_import_file(filename):
             'imported_counts': imported_counts
         })
     
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+# ==================== 企業管理API ====================
+
+@api.route('/companies/search-by-name', methods=['POST'])
+def search_company_by_name():
+    """企業名から企業コードを検索（J-Quants API使用）"""
+    try:
+        data = request.get_json()
+        company_name = data.get('company_name', '').strip()
+        
+        if not company_name:
+            return jsonify({
+                'success': False,
+                'error': '企業名を入力してください'
+            }), 400
+        
+        # J-Quants APIで企業検索
+        from backend.utils.jquants_data_fetcher import JQuantsDataFetcher
+        
+        fetcher = JQuantsDataFetcher()
+        jquants_results = fetcher.search_companies_by_name(company_name, limit=10)
+        
+        if not jquants_results:
+            return jsonify({
+                'success': True,
+                'data': [],
+                'message': 'J-Quants APIで該当する企業が見つかりませんでした'
+            })
+        
+        # 結果を整形（既存DBには登録済みかどうかもチェック）
+        companies = []
+        for company in jquants_results:
+            # 既存DBに登録済みかチェック
+            existing = company_model.get_by_symbol(company['symbol'])
+            
+            companies.append({
+                'symbol': company['symbol'],
+                'name': company['name'],
+                'sector': company['sector'],
+                'market': company['market'],
+                'market_code': company.get('market_code', ''),
+                'source': 'jquants',
+                'already_registered': existing is not None,
+                'name_english': company.get('name_english', ''),
+                'name_full': company.get('name_full', ''),
+                'listing_date': company.get('listing_date', ''),
+                'scale': company.get('scale', '')
+            })
+        
+        return jsonify({
+            'success': True,
+            'data': companies,
+            'count': len(companies),
+            'message': f'J-Quants APIで{len(companies)}件の企業が見つかりました',
+            'source': 'jquants'
+        })
+        
+    except ImportError as e:
+        logger.error(f"J-Quants APIモジュールの読み込みエラー: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'J-Quants APIが利用できません'
+        }), 500
+    except Exception as e:
+        logger.error(f"企業名検索エラー: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@api.route('/companies/create', methods=['POST'])
+def create_company():
+    """企業を新規作成"""
+    try:
+        data = request.get_json()
+        
+        # 必須フィールドのチェック
+        required_fields = ['symbol', 'name']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({
+                    'success': False,
+                    'error': f'{field}は必須です'
+                }), 400
+        
+        symbol = data['symbol'].strip()
+        name = data['name'].strip()
+        sector = data.get('sector', '').strip()
+        market = data.get('market', '').strip()
+        
+        # 重複チェック
+        existing = company_model.get_by_symbol(symbol)
+        if existing:
+            return jsonify({
+                'success': False,
+                'error': f'企業コード {symbol} は既に登録されています'
+            }), 409
+        
+        # 新規作成
+        company_id = company_model.create(symbol, name, sector, market)
+        
+        return jsonify({
+            'success': True,
+            'message': '企業が正常に作成されました',
+            'data': {
+                'id': company_id,
+                'symbol': symbol,
+                'name': name,
+                'sector': sector,
+                'market': market
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@api.route('/companies/<int:company_id>/update', methods=['PUT'])
+def update_company(company_id):
+    """企業情報を更新"""
+    try:
+        data = request.get_json()
+        
+        # 企業の存在確認
+        existing = company_model.get_by_id(company_id)
+        if not existing:
+            return jsonify({
+                'success': False,
+                'error': '企業が見つかりません'
+            }), 404
+        
+        # 更新可能フィールドのみを抽出
+        update_fields = {}
+        for field in ['symbol', 'name', 'sector', 'market']:
+            if field in data and data[field] is not None:
+                update_fields[field] = data[field].strip()
+        
+        if not update_fields:
+            return jsonify({
+                'success': False,
+                'error': '更新する項目がありません'
+            }), 400
+        
+        # シンボルの重複チェック（シンボルが変更される場合）
+        if 'symbol' in update_fields and update_fields['symbol'] != existing['symbol']:
+            duplicate = company_model.get_by_symbol(update_fields['symbol'])
+            if duplicate:
+                return jsonify({
+                    'success': False,
+                    'error': f'企業コード {update_fields["symbol"]} は既に他の企業で使用されています'
+                }), 409
+        
+        # 更新実行
+        updated_rows = company_model.update(company_id, **update_fields)
+        
+        if updated_rows == 0:
+            return jsonify({
+                'success': False,
+                'error': '更新に失敗しました'
+            }), 500
+        
+        # 更新後のデータを取得
+        updated_company = company_model.get_by_id(company_id)
+        
+        return jsonify({
+            'success': True,
+            'message': '企業情報が正常に更新されました',
+            'data': dict(updated_company)
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@api.route('/companies/<int:company_id>/check-dependencies', methods=['GET'])
+def check_company_dependencies(company_id):
+    """企業の関連データを確認"""
+    try:
+        # 企業の存在確認
+        company = company_model.get_by_id(company_id)
+        if not company:
+            return jsonify({
+                'success': False,
+                'error': '企業が見つかりません'
+            }), 404
+        
+        dependencies = {}
+        
+        # 株価データをチェック
+        stock_count_query = "SELECT COUNT(*) as count FROM stock_prices WHERE company_id = ?"
+        stock_result = db_manager.execute_query(stock_count_query, (company_id,))
+        dependencies['stock_prices'] = stock_result[0]['count'] if stock_result else 0
+        
+        # 財務指標データをチェック
+        financial_count_query = "SELECT COUNT(*) as count FROM financial_metrics WHERE company_id = ?"
+        financial_result = db_manager.execute_query(financial_count_query, (company_id,))
+        dependencies['financial_metrics'] = financial_result[0]['count'] if financial_result else 0
+        
+        # 価格統計データをチェック
+        stats_count_query = "SELECT COUNT(*) as count FROM price_statistics WHERE company_id = ?"
+        stats_result = db_manager.execute_query(stats_count_query, (company_id,))
+        dependencies['price_statistics'] = stats_result[0]['count'] if stats_result else 0
+        
+        # テクニカル指標データをチェック
+        technical_count_query = "SELECT COUNT(*) as count FROM technical_indicators WHERE company_id = ?"
+        technical_result = db_manager.execute_query(technical_count_query, (company_id,))
+        dependencies['technical_indicators'] = technical_result[0]['count'] if technical_result else 0
+        
+        # 総合データ数
+        total_data_count = (dependencies['stock_prices'] + 
+                           dependencies['financial_metrics'] + 
+                           dependencies['price_statistics'] + 
+                           dependencies['technical_indicators'])
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'company': dict(company),
+                'dependencies': dependencies,
+                'total_data_count': total_data_count,
+                'has_dependencies': total_data_count > 0
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@api.route('/companies/<int:company_id>/delete', methods=['DELETE'])
+def delete_company(company_id):
+    """企業とその関連データを削除"""
+    try:
+        # 企業の存在確認
+        company = company_model.get_by_id(company_id)
+        if not company:
+            return jsonify({
+                'success': False,
+                'error': '企業が見つかりません'
+            }), 404
+        
+        # トランザクションを使用して一括削除
+        with db_manager.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # 削除前に依存関係を記録
+            dependencies = {}
+            
+            # テクニカル指標を削除
+            cursor.execute("SELECT COUNT(*) FROM technical_indicators WHERE company_id = ?", (company_id,))
+            dependencies['technical_indicators'] = cursor.fetchone()[0]
+            cursor.execute("DELETE FROM technical_indicators WHERE company_id = ?", (company_id,))
+            
+            # 価格統計を削除
+            cursor.execute("SELECT COUNT(*) FROM price_statistics WHERE company_id = ?", (company_id,))
+            dependencies['price_statistics'] = cursor.fetchone()[0]
+            cursor.execute("DELETE FROM price_statistics WHERE company_id = ?", (company_id,))
+            
+            # 財務指標を削除
+            cursor.execute("SELECT COUNT(*) FROM financial_metrics WHERE company_id = ?", (company_id,))
+            dependencies['financial_metrics'] = cursor.fetchone()[0]
+            cursor.execute("DELETE FROM financial_metrics WHERE company_id = ?", (company_id,))
+            
+            # 株価データを削除
+            cursor.execute("SELECT COUNT(*) FROM stock_prices WHERE company_id = ?", (company_id,))
+            dependencies['stock_prices'] = cursor.fetchone()[0]
+            cursor.execute("DELETE FROM stock_prices WHERE company_id = ?", (company_id,))
+            
+            # 企業情報を削除
+            cursor.execute("DELETE FROM companies WHERE id = ?", (company_id,))
+            
+            conn.commit()
+        
+        total_deleted = sum(dependencies.values())
+        
+        return jsonify({
+            'success': True,
+            'message': f'企業 "{company["name"]}" とその関連データが正常に削除されました',
+            'data': {
+                'deleted_company': dict(company),
+                'deleted_dependencies': dependencies,
+                'total_deleted_records': total_deleted
+            }
+        })
+        
     except Exception as e:
         return jsonify({
             'success': False,

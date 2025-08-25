@@ -1,0 +1,390 @@
+{
+  "companies": [
+    {
+      "id": 1,
+      "symbol": "7203",
+      "name": "トヨタ自動車",
+      "sector": "輸送用機器",
+      "market": "東証プライム",
+      "created_at": "2025-08-18 02:07:09",
+      "updated_at": "2025-08-24 23:32:08"
+    },
+    {
+      "id": 2,
+      "symbol": "6758",
+      "name": "ソニーグループ",
+      "sector": "電気機器",
+      "market": "東証プライム",
+      "created_at": "2025-08-18 02:07:09",
+      "updated_at": "2025-08-24 23:32:08"
+    },
+    {
+      "id": 3,
+      "symbol": "9984",
+      "name": "ソフトバンクグループ",
+      "sector": "情報・通信業",
+      "market": "東証プライム",
+      "created_at": "2025-08-18 02:07:09",
+      "updated_at": "2025-08-24 23:32:08"
+    },
+    {
+      "id": 4,
+      "symbol": "6861",
+      "name": "キーエンス",
+      "sector": "電気機器",
+      "market": "東証プライム",
+      "created_at": "2025-08-18 02:07:09",
+      "updated_at": "2025-08-24 23:32:08"
+    },
+    {
+      "id": 5,
+      "symbol": "4519",
+      "name": "中外製薬",
+      "sector": "医薬品",
+      "market": "東証プライム",
+      "created_at": "2025-08-18 02:07:09",
+      "updated_at": "2025-08-24 23:32:08"
+    },
+    {
+      "id": 6,
+      "symbol": "TEST",
+      "name": "テスト企業",
+      "sector": "テスト業種",
+      "market": "テスト市場",
+      "created_at": "2025-08-18 02:11:38",
+      "updated_at": "2025-08-24 23:32:08"
+    }
+  ],
+  "stock_prices": [
+    {
+      "id": 2,
+      "company_id": 1,
+      "price": 2500,
+      "price_date": "2024-01-15",
+      "volume": 150000,
+      "created_at": "2025-08-19 02:04:04"
+    },
+    {
+      "id": 3,
+      "company_id": 6,
+      "price": 1000,
+      "price_date": "2025-08-18",
+      "volume": 100000,
+      "created_at": "2025-08-24 23:32:08"
+    },
+    {
+      "id": 4,
+      "company_id": 5,
+      "price": 6270,
+      "price_date": "2025-08-22",
+      "volume": 3138300,
+      "created_at": "2025-08-25 01:21:44"
+    },
+    {
+      "id": 5,
+      "company_id": 2,
+      "price": 4221,
+      "price_date": "2025-08-22",
+      "volume": 11847200,
+      "created_at": "2025-08-25 01:21:45"
+    },
+    {
+      "id": 6,
+      "company_id": 4,
+      "price": 56320,
+      "price_date": "2025-08-22",
+      "volume": 664700,
+      "created_at": "2025-08-25 01:21:45"
+    },
+    {
+      "id": 7,
+      "company_id": 1,
+      "price": 2943,
+      "price_date": "2025-08-22",
+      "volume": 17269600,
+      "created_at": "2025-08-25 01:21:46"
+    },
+    {
+      "id": 8,
+      "company_id": 3,
+      "price": 14880,
+      "price_date": "2025-08-22",
+      "volume": 10360200,
+      "created_at": "2025-08-25 01:21:46"
+    },
+    {
+      "id": 9,
+      "company_id": 5,
+      "price": 7341,
+      "price_date": "2025-07-25",
+      "volume": 3349200,
+      "created_at": "2025-08-25 04:56:26"
+    },
+    {
+      "id": 10,
+      "company_id": 2,
+      "price": 3706,
+      "price_date": "2025-07-25",
+      "volume": 9921000,
+      "created_at": "2025-08-25 04:56:26"
+    },
+    {
+      "id": 11,
+      "company_id": 4,
+      "price": 57660,
+      "price_date": "2025-07-25",
+      "volume": 951000,
+      "created_at": "2025-08-25 04:56:27"
+    },
+    {
+      "id": 12,
+      "company_id": 1,
+      "price": 2787,
+      "price_date": "2025-07-25",
+      "volume": 36978000,
+      "created_at": "2025-08-25 04:56:27"
+    },
+    {
+      "id": 13,
+      "company_id": 3,
+      "price": 12205,
+      "price_date": "2025-07-25",
+      "volume": 9845700,
+      "created_at": "2025-08-25 04:56:28"
+    },
+    {
+      "id": 14,
+      "company_id": 5,
+      "price": 6539,
+      "price_date": "2025-08-19",
+      "volume": 6506200,
+      "created_at": "2025-08-25 04:56:54"
+    },
+    {
+      "id": 15,
+      "company_id": 2,
+      "price": 4168,
+      "price_date": "2025-08-19",
+      "volume": 9659400,
+      "created_at": "2025-08-25 04:56:54"
+    },
+    {
+      "id": 16,
+      "company_id": 4,
+      "price": 56770,
+      "price_date": "2025-08-19",
+      "volume": 449900,
+      "created_at": "2025-08-25 04:56:55"
+    },
+    {
+      "id": 17,
+      "company_id": 1,
+      "price": 2925,
+      "price_date": "2025-08-19",
+      "volume": 28833900,
+      "created_at": "2025-08-25 04:56:55"
+    },
+    {
+      "id": 18,
+      "company_id": 3,
+      "price": 16035,
+      "price_date": "2025-08-19",
+      "volume": 23860000,
+      "created_at": "2025-08-25 04:56:56"
+    }
+  ],
+  "financial_metrics": [
+    {
+      "id": 1,
+      "company_id": 1,
+      "pbr": 1.5,
+      "per": 15.2,
+      "equity_ratio": null,
+      "roe": 0.12,
+      "roa": null,
+      "report_date": "2024-03-31",
+      "created_at": "2025-08-19 02:04:15"
+    }
+  ],
+  "price_statistics": [
+    {
+      "id": 70,
+      "company_id": 5,
+      "period_type": "monthly",
+      "period_value": "2025-08",
+      "min_price": 6270,
+      "max_price": 6539,
+      "avg_price": 6404.5,
+      "created_at": "2025-08-25 04:56:54",
+      "updated_at": "2025-08-25 04:56:54"
+    },
+    {
+      "id": 71,
+      "company_id": 5,
+      "period_type": "yearly",
+      "period_value": "2025",
+      "min_price": 6270,
+      "max_price": 7341,
+      "avg_price": 6716.666666666667,
+      "created_at": "2025-08-25 04:56:54",
+      "updated_at": "2025-08-25 04:56:54"
+    },
+    {
+      "id": 72,
+      "company_id": 5,
+      "period_type": "all_time",
+      "period_value": "all",
+      "min_price": 6270,
+      "max_price": 7341,
+      "avg_price": 6716.666666666667,
+      "created_at": "2025-08-25 04:56:54",
+      "updated_at": "2025-08-25 04:56:54"
+    },
+    {
+      "id": 73,
+      "company_id": 2,
+      "period_type": "monthly",
+      "period_value": "2025-08",
+      "min_price": 4168,
+      "max_price": 4221,
+      "avg_price": 4194.5,
+      "created_at": "2025-08-25 04:56:55",
+      "updated_at": "2025-08-25 04:56:55"
+    },
+    {
+      "id": 74,
+      "company_id": 2,
+      "period_type": "yearly",
+      "period_value": "2025",
+      "min_price": 3706,
+      "max_price": 4221,
+      "avg_price": 4031.6666666666665,
+      "created_at": "2025-08-25 04:56:55",
+      "updated_at": "2025-08-25 04:56:55"
+    },
+    {
+      "id": 75,
+      "company_id": 2,
+      "period_type": "all_time",
+      "period_value": "all",
+      "min_price": 3706,
+      "max_price": 4221,
+      "avg_price": 4031.6666666666665,
+      "created_at": "2025-08-25 04:56:55",
+      "updated_at": "2025-08-25 04:56:55"
+    },
+    {
+      "id": 76,
+      "company_id": 4,
+      "period_type": "monthly",
+      "period_value": "2025-08",
+      "min_price": 56320,
+      "max_price": 56770,
+      "avg_price": 56545,
+      "created_at": "2025-08-25 04:56:55",
+      "updated_at": "2025-08-25 04:56:55"
+    },
+    {
+      "id": 77,
+      "company_id": 4,
+      "period_type": "yearly",
+      "period_value": "2025",
+      "min_price": 56320,
+      "max_price": 57660,
+      "avg_price": 56916.666666666664,
+      "created_at": "2025-08-25 04:56:55",
+      "updated_at": "2025-08-25 04:56:55"
+    },
+    {
+      "id": 78,
+      "company_id": 4,
+      "period_type": "all_time",
+      "period_value": "all",
+      "min_price": 56320,
+      "max_price": 57660,
+      "avg_price": 56916.666666666664,
+      "created_at": "2025-08-25 04:56:55",
+      "updated_at": "2025-08-25 04:56:55"
+    },
+    {
+      "id": 79,
+      "company_id": 1,
+      "period_type": "monthly",
+      "period_value": "2025-08",
+      "min_price": 2925,
+      "max_price": 2943,
+      "avg_price": 2934,
+      "created_at": "2025-08-25 04:56:55",
+      "updated_at": "2025-08-25 04:56:55"
+    },
+    {
+      "id": 80,
+      "company_id": 1,
+      "period_type": "yearly",
+      "period_value": "2025",
+      "min_price": 2787,
+      "max_price": 2943,
+      "avg_price": 2885,
+      "created_at": "2025-08-25 04:56:55",
+      "updated_at": "2025-08-25 04:56:55"
+    },
+    {
+      "id": 81,
+      "company_id": 1,
+      "period_type": "all_time",
+      "period_value": "all",
+      "min_price": 2500,
+      "max_price": 2943,
+      "avg_price": 2788.75,
+      "created_at": "2025-08-25 04:56:55",
+      "updated_at": "2025-08-25 04:56:55"
+    },
+    {
+      "id": 82,
+      "company_id": 3,
+      "period_type": "monthly",
+      "period_value": "2025-08",
+      "min_price": 14880,
+      "max_price": 16035,
+      "avg_price": 15457.5,
+      "created_at": "2025-08-25 04:56:56",
+      "updated_at": "2025-08-25 04:56:56"
+    },
+    {
+      "id": 83,
+      "company_id": 3,
+      "period_type": "yearly",
+      "period_value": "2025",
+      "min_price": 12205,
+      "max_price": 16035,
+      "avg_price": 14373.333333333334,
+      "created_at": "2025-08-25 04:56:56",
+      "updated_at": "2025-08-25 04:56:56"
+    },
+    {
+      "id": 84,
+      "company_id": 3,
+      "period_type": "all_time",
+      "period_value": "all",
+      "min_price": 12205,
+      "max_price": 16035,
+      "avg_price": 14373.333333333334,
+      "created_at": "2025-08-25 04:56:56",
+      "updated_at": "2025-08-25 04:56:56"
+    }
+  ],
+  "technical_indicators": [
+    {
+      "id": 1,
+      "company_id": 1,
+      "indicator_date": "2024-01-15",
+      "rsi": 65.5,
+      "macd": 1.2,
+      "sma_25": 2450,
+      "sma_75": null,
+      "bollinger_upper": null,
+      "bollinger_lower": null,
+      "created_at": "2025-08-19 02:05:16"
+    }
+  ]
+}

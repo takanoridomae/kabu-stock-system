@@ -17,3 +17,9 @@ def index():
 def search():
     """検索ページ"""
     return render_template('search.html')
+
+
+@web.route('/company-management')
+def company_management():
+    """企業管理ページ"""
+    return render_template('company_management.html')

@@ -1,0 +1,634 @@
+{% extends "base.html" %}
+
+{% block title %}企業管理 - 株式検索システム{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2><i class="fas fa-building me-2"></i>企業管理</h2>
+        <p class="text-muted">企業情報の登録、編集、削除を行います。</p>
+    </div>
+</div>
+
+<!-- アラート表示エリア -->
+<div id="alertArea"></div>
+
+<!-- アクションボタン -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-primary" onclick="showCreateModal()">
+                <i class="fas fa-plus me-2"></i>新規企業登録
+            </button>
+            <button type="button" class="btn btn-warning" onclick="showManualDataEntryModal()">
+                <i class="fas fa-edit me-2"></i>手動データ入力
+            </button>
+            <button type="button" class="btn btn-outline-secondary" onclick="loadCompanies()">
+                <i class="fas fa-refresh me-2"></i>一覧更新
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 企業一覧テーブル -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-list me-2"></i>企業一覧</h5>
+            </div>
+            <div class="card-body">
+                <!-- 検索フィルター -->
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <input type="text" class="form-control" id="filterSymbol" placeholder="企業コードで絞り込み">
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" class="form-control" id="filterName" placeholder="企業名で絞り込み">
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" class="form-control" id="filterSector" placeholder="業種で絞り込み">
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-outline-primary" onclick="applyFilter()">
+                            <i class="fas fa-search me-1"></i>絞り込み
+                        </button>
+                        <button class="btn btn-outline-secondary ms-2" onclick="clearFilter()">
+                            <i class="fas fa-times me-1"></i>クリア
+                        </button>
+                    </div>
+                </div>
+
+                <!-- テーブル -->
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>企業コード</th>
+                                <th>企業名</th>
+                                <th>業種</th>
+                                <th>市場</th>
+                                <th>現在株価</th>
+                                <th>PBR</th>
+                                <th>PER</th>
+                                <th>最終更新</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="companiesTableBody">
+                            <tr>
+                                <td colspan="9" class="text-center text-muted">
+                                    <i class="fas fa-spinner fa-spin me-2"></i>読み込み中...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- ページネーション（将来の拡張用） -->
+                <div id="pagination" class="d-flex justify-content-center mt-3">
+                    <!-- ページネーションコントロールをここに追加 -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 企業登録・編集モーダル -->
+<div class="modal fade" id="companyModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="companyModalTitle">
+                    <i class="fas fa-building me-2"></i>企業情報登録
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="companyForm">
+                    <input type="hidden" id="companyId">
+                    
+                    <!-- 企業名検索セクション -->
+                    <div class="mb-4">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="card-title">
+                                    <i class="fas fa-search me-2"></i>企業名からコード検索
+                                </h6>
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <input type="text" class="form-control" id="searchCompanyName" 
+                                               placeholder="企業名を入力（例: トヨタ、ソニー）">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <button type="button" class="btn btn-outline-primary w-100" 
+                                                onclick="searchCompanyByName()">
+                                            <i class="fas fa-search me-1"></i>検索
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="searchResults" class="mt-3" style="display: none;">
+                                    <!-- 検索結果がここに表示される -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 企業情報入力フォーム -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="companySymbol" class="form-label">
+                                <i class="fas fa-code me-1"></i>企業コード <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" class="form-control" id="companySymbol" required
+                                   placeholder="例: 7203" maxlength="10">
+                            <div class="form-text">4桁または5桁の数字で入力してください。</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="companyName" class="form-label">
+                                <i class="fas fa-building me-1"></i>企業名 <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" class="form-control" id="companyName" required
+                                   placeholder="例: トヨタ自動車" maxlength="255">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="companySector" class="form-label">
+                                <i class="fas fa-industry me-1"></i>業種
+                            </label>
+                            <input type="text" class="form-control" id="companySector"
+                                   placeholder="例: 輸送用機器" maxlength="100">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="companyMarket" class="form-label">
+                                <i class="fas fa-chart-line me-1"></i>市場
+                            </label>
+                            <select class="form-select" id="companyMarket">
+                                <option value="">選択してください</option>
+                                <option value="東証プライム">東証プライム</option>
+                                <option value="東証スタンダード">東証スタンダード</option>
+                                <option value="東証グロース">東証グロース</option>
+                                <option value="札幌証券取引所">札幌証券取引所</option>
+                                <option value="名古屋証券取引所">名古屋証券取引所</option>
+                                <option value="福岡証券取引所">福岡証券取引所</option>
+                                <option value="JASDAQ">JASDAQ</option>
+                                <option value="ニューヨーク証券取引所">ニューヨーク証券取引所</option>
+                                <option value="NASDAQ">NASDAQ</option>
+                            </select>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>キャンセル
+                </button>
+                <button type="button" class="btn btn-primary" id="saveCompanyBtn" onclick="saveCompany()">
+                    <i class="fas fa-save me-1"></i>保存
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 削除確認モーダル -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle me-2"></i>削除確認
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="deleteContent">
+                    <!-- 削除内容がここに表示される -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>キャンセル
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+                    <i class="fas fa-trash me-1"></i>削除実行
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 企業詳細表示モーダル -->
+<div class="modal fade" id="companyDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="companyDetailModalTitle">
+                    <i class="fas fa-chart-line me-2"></i>企業詳細情報
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- 読み込み中表示 -->
+                <div id="detailLoading" class="text-center py-4">
+                    <i class="fas fa-spinner fa-spin fa-2x text-primary"></i>
+                    <p class="mt-2 text-muted">データを読み込み中...</p>
+                </div>
+                
+                <!-- 詳細情報表示エリア -->
+                <div id="detailContent" style="display: none;">
+                    <!-- 基本情報 -->
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0"><i class="fas fa-building me-2"></i>基本情報</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <strong>企業コード:</strong>
+                                            <div id="detail-symbol" class="text-primary fs-5">-</div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <strong>企業名:</strong>
+                                            <div id="detail-name" class="fs-5">-</div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <strong>登録日:</strong>
+                                            <div id="detail-created" class="text-muted">-</div>
+                                        </div>
+                                    </div>
+                                    <div class="row mt-3">
+                                        <div class="col-md-6">
+                                            <strong>業種:</strong>
+                                            <div id="detail-sector">-</div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <strong>市場:</strong>
+                                            <div id="detail-market">-</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 株価情報 -->
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0"><i class="fas fa-yen-sign me-2"></i>株価情報</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <div class="text-center">
+                                                <div class="fs-6 text-muted">現在株価</div>
+                                                <div id="detail-current-price" class="fs-3 fw-bold text-primary">-</div>
+                                                <div id="detail-price-date" class="small text-muted">-</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="text-center">
+                                                <div class="fs-6 text-muted">出来高</div>
+                                                <div id="detail-volume" class="fs-5">-</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="row">
+                                                <div class="col-6">
+                                                    <div class="small text-muted">月間最高値</div>
+                                                    <div id="detail-monthly-max" class="fw-bold">-</div>
+                                                </div>
+                                                <div class="col-6">
+                                                    <div class="small text-muted">月間最安値</div>
+                                                    <div id="detail-monthly-min" class="fw-bold">-</div>
+                                                </div>
+                                                <div class="col-6">
+                                                    <div class="small text-muted">年間最高値</div>
+                                                    <div id="detail-yearly-max" class="fw-bold">-</div>
+                                                </div>
+                                                <div class="col-6">
+                                                    <div class="small text-muted">年間最安値</div>
+                                                    <div id="detail-yearly-min" class="fw-bold">-</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 財務指標 -->
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0"><i class="fas fa-calculator me-2"></i>財務指標</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row text-center">
+                                        <div class="col-md-2">
+                                            <div class="border rounded p-2">
+                                                <div class="small text-muted">PBR</div>
+                                                <div id="detail-pbr" class="fw-bold text-info">-</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="border rounded p-2">
+                                                <div class="small text-muted">PER</div>
+                                                <div id="detail-per" class="fw-bold text-info">-</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="border rounded p-2">
+                                                <div class="small text-muted">自己資本比率</div>
+                                                <div id="detail-equity-ratio" class="fw-bold text-info">-</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="border rounded p-2">
+                                                <div class="small text-muted">ROE</div>
+                                                <div id="detail-roe" class="fw-bold text-info">-</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="border rounded p-2">
+                                                <div class="small text-muted">ROA</div>
+                                                <div id="detail-roa" class="fw-bold text-info">-</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="border rounded p-2">
+                                                <div class="small text-muted">報告日</div>
+                                                <div id="detail-report-date" class="small">-</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- 売上高・営業利益 -->
+                                    <div class="row text-center mt-3">
+                                        <div class="col-md-6">
+                                            <div class="border rounded p-3">
+                                                <div class="small text-muted">売上高</div>
+                                                <div id="detail-net-sales" class="fw-bold text-success fs-5">-</div>
+                                                <div id="detail-net-sales-date" class="small text-muted">-</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="border rounded p-3">
+                                                <div class="small text-muted">営業利益</div>
+                                                <div id="detail-operating-profit" class="fw-bold text-warning fs-5">-</div>
+                                                <div id="detail-operating-profit-date" class="small text-muted">-</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 株価履歴チャート（将来の拡張用） -->
+                    <div class="row mb-4" id="priceChartSection" style="display: none;">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0"><i class="fas fa-chart-area me-2"></i>株価履歴（30日間）</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="priceChart" style="height: 300px;">
+                                        <!-- チャートがここに表示される -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- データ更新アクション -->
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0"><i class="fas fa-sync me-2"></i>データ更新</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="d-flex gap-2">
+                                        <button type="button" class="btn btn-outline-success btn-sm" onclick="fetchStockData()">
+                                            <i class="fas fa-download me-1"></i>株価データ取得
+                                        </button>
+                                        <button type="button" class="btn btn-outline-info btn-sm" onclick="fetchJQuantsData()">
+                                            <i class="fas fa-cloud-download-alt me-1"></i>J-Quants API取得
+                                        </button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="refreshDetailData()">
+                                            <i class="fas fa-refresh me-1"></i>表示更新
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- エラー表示エリア -->
+                <div id="detailError" class="alert alert-danger" style="display: none;">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    <span id="detailErrorMessage">データの読み込みに失敗しました</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>閉じる
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 関連データ確認モーダル -->
+<div class="modal fade" id="dependencyModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle me-2"></i>関連データの確認
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-info-circle me-2"></i>
+                    この企業には以下の関連データが存在します。削除すると、これらのデータもすべて削除されます。
+                </div>
+                <div id="dependencyContent">
+                    <!-- 関連データ詳細がここに表示される -->
+                </div>
+                <div class="alert alert-danger mt-3">
+                    <strong><i class="fas fa-exclamation-triangle me-2"></i>警告:</strong>
+                    この操作は取り消せません。本当に削除しますか？
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>キャンセル
+                </button>
+                <button type="button" class="btn btn-warning" id="proceedDeleteBtn">
+                    <i class="fas fa-arrow-right me-1"></i>削除を続行
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 手動データ入力モーダル -->
+<div class="modal fade" id="manualDataEntryModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-edit me-2"></i>手動データ入力
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-info-circle me-2"></i>データ入力方法</h6>
+                    <p class="mb-0">Yahoo!ファイナンス等から手動で取得したデータを入力してください。</p>
+                </div>
+                
+                <form id="manualDataForm">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="manualSymbol" class="form-label">企業コード <span class="text-danger">*</span></label>
+                            <select class="form-control" id="manualSymbol" required>
+                                <option value="">企業を選択してください</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="manualDate" class="form-label">データ日付 <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="manualDate" required>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="manualPrice" class="form-label">株価（円）</label>
+                            <input type="number" class="form-control" id="manualPrice" step="0.01" min="0">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="manualVolume" class="form-label">出来高</label>
+                            <input type="number" class="form-control" id="manualVolume" min="0">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="manualPBR" class="form-label">PBR</label>
+                            <input type="number" class="form-control" id="manualPBR" step="0.01" min="0">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="manualPER" class="form-label">PER</label>
+                            <input type="number" class="form-control" id="manualPER" step="0.01" min="0">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="manualROE" class="form-label">ROE（%）</label>
+                            <input type="number" class="form-control" id="manualROE" step="0.01" min="0" max="100">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="manualEquityRatio" class="form-label">自己資本比率（%）</label>
+                            <input type="number" class="form-control" id="manualEquityRatio" step="0.01" min="0" max="100">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="manualROA" class="form-label">ROA（%）</label>
+                            <input type="number" class="form-control" id="manualROA" step="0.01" min="0" max="100">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="manualNetSales" class="form-label">売上高（千円）</label>
+                            <input type="number" class="form-control" id="manualNetSales" step="1000" min="0">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="manualOperatingProfit" class="form-label">営業利益（千円）</label>
+                            <input type="number" class="form-control" id="manualOperatingProfit" step="1000" min="0">
+                        </div>
+                    </div>
+                </form>
+                
+                <div class="alert alert-warning">
+                    <h6><i class="fas fa-lightbulb me-2"></i>データ取得のヒント</h6>
+                    <ul class="mb-0">
+                        <li>Yahoo!ファイナンス: 手動でデータを確認・コピー</li>
+                        <li>証券会社サイト: ログイン後のデータ画面</li>
+                        <li>企業IR情報: 公式決算資料</li>
+                        <li>日経新聞等: 金融情報サイト</li>
+                        <li>売上高・営業利益: 決算短信や有価証券報告書から</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" onclick="saveManualData()">
+                    <i class="fas fa-save me-1"></i>保存
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block head %}
+<script src="{{ url_for('static', filename='js/company_management.js') }}" defer></script>
+<style>
+    .table th {
+        white-space: nowrap;
+    }
+    
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+    
+    .search-result-item {
+        cursor: pointer;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        margin-bottom: 5px;
+        transition: background-color 0.2s;
+    }
+    
+    .search-result-item:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .search-result-item.selected {
+        background-color: #e3f2fd;
+        border-color: #2196f3;
+    }
+    
+    .dependency-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        margin-bottom: 10px;
+    }
+    
+    .dependency-count {
+        font-weight: bold;
+        color: #dc3545;
+    }
+</style>
+{% endblock %}

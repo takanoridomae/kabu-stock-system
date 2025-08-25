@@ -197,6 +197,9 @@ class JQuantsDataFetcher:
                 'roe': financial_data.get('roe'),
                 'equity_ratio': financial_data.get('equity_ratio'),
                 'roa': financial_data.get('roa'),
+                'net_sales': financial_data.get('net_sales'),
+                'operating_profit': financial_data.get('operating_profit'),
+                'report_date': financial_data.get('report_date'),
                 
                 # メタデータ
                 'data_source': 'j_quants',
@@ -280,6 +283,13 @@ class JQuantsDataFetcher:
     def _get_financial_statements(self, symbol: str) -> Dict[str, Any]:
         """財務諸表データを取得"""
         try:
+            # 認証が完了していない場合は初期化を試行
+            if not hasattr(self, 'id_token') or not self.id_token:
+                logger.info("認証トークンがないため、認証を試行します")
+                if not self._initialize_client():
+                    logger.warning("認証に失敗したため財務データをスキップします")
+                    return {}
+            
             if not self.id_token:
                 logger.warning("認証トークンがないため財務データをスキップします")
                 return {}
@@ -305,42 +315,111 @@ class JQuantsDataFetcher:
                 # 最新の財務データを取得
                 latest_data = statements[0] if statements else {}
                 
-                # 財務指標の計算
+                # 財務指標の計算（J-Quants APIの実際のフィールド名を使用）
                 result = {}
                 
-                # J-Quants APIの実際のフィールド名に合わせて調整
-                # 注意: 実際のAPIレスポンス構造に応じて調整が必要
-                if 'NetAssets' in latest_data and 'MarketCap' in latest_data:
-                    net_assets = float(latest_data.get('NetAssets', 0))
-                    market_cap = float(latest_data.get('MarketCap', 0))
-                    if net_assets > 0:
-                        result['pbr'] = market_cap / net_assets
+                # 最新のデータを取得（最初のエレメントが最新）
+                if statements:
+                    # 最新の年次データを探す（四半期ではなく年次データを優先）
+                    annual_data = None
+                    for stmt in statements:
+                        if stmt.get('TypeOfCurrentPeriod') in ['FY', '4Q', 'Annual']:
+                            annual_data = stmt
+                            break
+                    
+                    # 年次データがない場合は最新データを使用
+                    if not annual_data:
+                        annual_data = statements[0]
+                    
+                    # 基本財務データ
+                    try:
+                        # 自己資本比率（直接取得可能）
+                        if annual_data.get('EquityToAssetRatio'):
+                            result['equity_ratio'] = float(annual_data['EquityToAssetRatio'])
+                        
+                        # ROEの計算（利益 / 自己資本）
+                        profit = annual_data.get('Profit')
+                        equity = annual_data.get('Equity')
+                        if profit and equity:
+                            result['roe'] = float(profit) / float(equity)
+                        
+                        # ROAの計算（利益 / 総資産）
+                        total_assets = annual_data.get('TotalAssets')
+                        if profit and total_assets:
+                            result['roa'] = float(profit) / float(total_assets)
+                        
+                        # EPSは直接取得可能
+                        eps = annual_data.get('EarningsPerShare')
+                        if eps:
+                            result['eps'] = float(eps)
+                        
+                        # 売上高、営業利益なども保存
+                        if annual_data.get('NetSales'):
+                            result['net_sales'] = float(annual_data['NetSales'])
+                        if annual_data.get('OperatingProfit'):
+                            result['operating_profit'] = float(annual_data['OperatingProfit'])
+                        
+                        # 基準日
+                        result['report_date'] = annual_data.get('CurrentPeriodEndDate')
+                        
+                    except (ValueError, TypeError) as e:
+                        logger.warning(f"財務指標計算エラー: {e}")
                 
-                if 'NetIncome' in latest_data and 'MarketCap' in latest_data:
-                    net_income = float(latest_data.get('NetIncome', 0))
-                    market_cap = float(latest_data.get('MarketCap', 0))
-                    if net_income > 0:
-                        result['per'] = market_cap / net_income
+                # 株価を取得してPBR, PERを計算
+                try:
+                    current_price = self._get_current_stock_price(symbol)
+                    
+                    # 株価取得失敗の場合、データベースから最新株価を取得
+                    if not current_price:
+                        try:
+                            from backend.models.database import stock_price_model, company_model
+                            
+                            # 企業IDを取得
+                            companies = company_model.search(symbol=symbol)
+                            if companies:
+                                company_id = companies[0]['id']
+                                latest_price_data = stock_price_model.get_latest_price(company_id)
+                                if latest_price_data:
+                                    current_price = float(latest_price_data['price'])
+                                    logger.info(f"データベースから株価取得: {symbol} = ¥{current_price}")
+                        except Exception as db_error:
+                            logger.debug(f"データベース株価取得エラー: {db_error}")
+                    
+                    if current_price and annual_data:
+                        # 発行済み株式数
+                        shares_outstanding = annual_data.get('NumberOfIssuedAndOutstandingSharesAtTheEndOfFiscalYearIncludingTreasuryStock')
+                        treasury_stock = annual_data.get('NumberOfTreasuryStockAtTheEndOfFiscalYear', 0)
+                        
+                        if shares_outstanding:
+                            effective_shares = float(shares_outstanding) - float(treasury_stock or 0)
+                            market_cap = current_price * effective_shares
+                            
+                            # PBR = 時価総額 / 自己資本
+                            equity = annual_data.get('Equity')
+                            if equity:
+                                result['pbr'] = market_cap / float(equity)
+                                logger.info(f"PBR計算成功: {symbol} = {result['pbr']:.4f}")
+                            
+                            # PER = 時価総額 / 当期純利益
+                            profit = annual_data.get('Profit')
+                            if profit:
+                                result['per'] = market_cap / float(profit)
+                                logger.info(f"PER計算成功: {symbol} = {result['per']:.4f}")
+                            
+                            result['market_cap'] = market_cap
+                            result['current_price'] = current_price
+                        
+                        else:
+                            logger.warning(f"発行済み株式数が取得できません: {symbol}")
+                    else:
+                        logger.warning(f"株価またはannual_dataが不足しているため、PBR/PER計算をスキップ: {symbol}")
+                            
+                except Exception as e:
+                    logger.warning(f"株価取得・PBR/PER計算エラー: {e}")
+                    import traceback
+                    traceback.print_exc()
                 
-                if 'NetIncome' in latest_data and 'NetAssets' in latest_data:
-                    net_income = float(latest_data.get('NetIncome', 0))
-                    net_assets = float(latest_data.get('NetAssets', 0))
-                    if net_assets > 0:
-                        result['roe'] = net_income / net_assets
-                
-                if 'NetAssets' in latest_data and 'TotalAssets' in latest_data:
-                    net_assets = float(latest_data.get('NetAssets', 0))
-                    total_assets = float(latest_data.get('TotalAssets', 0))
-                    if total_assets > 0:
-                        result['equity_ratio'] = net_assets / total_assets
-                
-                if 'NetIncome' in latest_data and 'TotalAssets' in latest_data:
-                    net_income = float(latest_data.get('NetIncome', 0))
-                    total_assets = float(latest_data.get('TotalAssets', 0))
-                    if total_assets > 0:
-                        result['roa'] = net_income / total_assets
-                
-                result['market_cap'] = latest_data.get('MarketCap')
+                logger.info(f"財務指標計算結果: {result}")
                 
                 return result
             elif response.status_code == 401:
@@ -354,32 +433,100 @@ class JQuantsDataFetcher:
             logger.warning(f"財務諸表データ取得エラー: {symbol}, {str(e)}")
             return {}
     
+    def _get_current_stock_price(self, symbol: str) -> Optional[float]:
+        """現在の株価を取得"""
+        try:
+            if not self.id_token:
+                return None
+            
+            # J-Quants API株価エンドポイント
+            url = f"{self.base_url}/prices/daily_quotes"
+            headers = {
+                "Authorization": f"Bearer {self.id_token}",
+                "Content-Type": "application/json"
+            }
+            
+            # 最新の営業日の株価を取得
+            date = self._get_latest_business_date()
+            params = {"code": symbol, "date": date}
+            
+            response = self.session.get(url, headers=headers, params=params)
+            
+            if response.status_code == 200:
+                data = response.json()
+                quotes = data.get("daily_quotes", [])
+                
+                if quotes:
+                    latest_quote = quotes[0]
+                    close_price = latest_quote.get("Close")
+                    if close_price:
+                        return float(close_price)
+            
+            # J-Quants APIで取得できない場合はYahoo Financeを試行
+            import yfinance as yf
+            import pandas as pd
+            
+            # 複数の期間を試行
+            for period in ["1d", "5d", "1mo"]:
+                try:
+                    formatted_symbol = f"{symbol}.T"
+                    ticker = yf.Ticker(formatted_symbol)
+                    hist = ticker.history(period=period)
+                    
+                    if not hist.empty and not pd.isna(hist['Close'].iloc[-1]):
+                        price = float(hist['Close'].iloc[-1])
+                        logger.info(f"Yahoo Financeから株価取得成功: {symbol} = ¥{price}")
+                        return price
+                        
+                except Exception as yf_error:
+                    logger.debug(f"Yahoo Finance {period}期間での取得失敗: {symbol}, {yf_error}")
+                    continue
+            
+            logger.warning(f"Yahoo Financeからも株価取得できませんでした: {symbol}")
+            return None
+            
+        except Exception as e:
+            logger.warning(f"株価取得エラー: {symbol}, {str(e)}")
+            return None
+    
     def _get_latest_business_date(self) -> str:
         """最新の営業日を取得"""
+        from datetime import datetime, timedelta
+        
         today = datetime.now()
         
-        # 土日を避ける
-        while today.weekday() >= 5:  # 5=土曜日, 6=日曜日
-            today -= timedelta(days=1)
+        # 過去5営業日まで遡って確認
+        for i in range(10):
+            check_date = today - timedelta(days=i)
+            # 土日を除外
+            if check_date.weekday() < 5:  # 0-4 = Mon-Fri
+                return check_date.strftime('%Y-%m-%d')
         
-        # 現在時刻が15:00以前の場合は前営業日を使用
-        if today.hour < 15:
-            today -= timedelta(days=1)
-            while today.weekday() >= 5:
-                today -= timedelta(days=1)
-        
+        # フォールバック
         return today.strftime('%Y-%m-%d')
     
     def _get_market_name(self, market_code: str) -> str:
         """市場コードを日本語名に変換"""
+        # J-Quants APIの実際の市場コードに基づくマッピング
         market_map = {
+            '0111': '東証プライム',
+            '0112': '東証スタンダード', 
+            '0113': '東証グロース',
+            '0121': '名古屋証券取引所',
+            '0131': 'ニューヨーク証券取引所',
+            '0132': 'NASDAQ',
+            '0141': 'JASDAQ',
+            '0151': '札幌証券取引所',
+            '0161': '福岡証券取引所',
+            
+            # 旧コード（互換性のため）
             'TSE1': '東証プライム',
             'TSE2': '東証スタンダード',
             'TSE3': '東証グロース',
-            'TSE': '東証',
+            'TSE': '東証プライム',
             'JQS': 'JASDAQ',
             'JQG': 'JASDAQ',
-            'MSC': 'マザーズ'
+            'MSC': '東証グロース'
         }
         return market_map.get(market_code, market_code)
     
@@ -477,3 +624,146 @@ class JQuantsDataFetcher:
                 'plan': 'Unknown',
                 'authenticated': False
             }
+    
+    def search_companies_by_name(self, company_name: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        J-Quants APIで企業名から企業情報を検索
+        
+        Args:
+            company_name (str): 検索する企業名
+            limit (int): 取得する最大件数
+            
+        Returns:
+            List[Dict]: 企業情報のリスト
+        """
+        if not self.is_authenticated:
+            if not self._initialize_client():
+                logger.error("J-Quants APIの初期化に失敗しました")
+                return []
+        
+        try:
+            logger.info(f"J-Quants APIで企業名検索: {company_name}")
+            
+            # 企業一覧の取得
+            url = f"{self.base_url}/listed/info"
+            headers = {
+                'Authorization': f'Bearer {self.id_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            response = self.session.get(url, headers=headers, timeout=30)
+            
+            if response.status_code != 200:
+                logger.error(f"J-Quants API企業一覧取得エラー: {response.status_code}")
+                return []
+            
+            data = response.json()
+            companies = data.get('info', [])
+            
+            # 企業名で絞り込み
+            matching_companies = []
+            company_name_lower = company_name.lower()
+            
+            for company in companies:
+                name = company.get('CompanyName', '')
+                name_english = company.get('CompanyNameEnglish', '')
+                name_full = company.get('CompanyNameFull', '')
+                
+                # 日本語名、英語名、正式名称のいずれかでマッチング
+                if (company_name_lower in name.lower() or 
+                    company_name_lower in name_english.lower() or 
+                    company_name_lower in name_full.lower()):
+                    
+                    # 結果を統一フォーマットで返す
+                    matching_companies.append({
+                        'symbol': company.get('Code', ''),
+                        'name': name,
+                        'name_english': name_english,
+                        'name_full': name_full,
+                        'sector': company.get('Sector33CodeName', ''),
+                        'sector17': company.get('Sector17CodeName', ''),
+                        'market': self._get_market_name(company.get('MarketCode', '')),
+                        'market_code': company.get('MarketCode', ''),
+                        'scale': company.get('ScaleCategory', ''),
+                        'listing_date': company.get('ListingDate', ''),
+                        'source': 'jquants'
+                    })
+            
+            # 完全一致を優先してソート
+            def sort_key(company):
+                name = company['name'].lower()
+                if name == company_name_lower:
+                    return (0, len(name))  # 完全一致を最優先
+                elif name.startswith(company_name_lower):
+                    return (1, len(name))  # 前方一致を次に優先
+                else:
+                    return (2, len(name))  # 部分一致
+            
+            matching_companies.sort(key=sort_key)
+            
+            # 指定件数まで取得
+            result = matching_companies[:limit]
+            
+            logger.info(f"J-Quants API企業名検索完了: {len(result)}件の企業が見つかりました")
+            return result
+            
+        except Exception as e:
+            logger.error(f"J-Quants API企業名検索エラー: {str(e)}")
+            return []
+    
+    def get_all_listed_companies(self, limit: int = 1000) -> List[Dict[str, Any]]:
+        """
+        J-Quants APIで全上場企業一覧を取得
+        
+        Args:
+            limit (int): 取得する最大件数
+            
+        Returns:
+            List[Dict]: 企業情報のリスト
+        """
+        if not self.is_authenticated:
+            if not self._initialize_client():
+                logger.error("J-Quants APIの初期化に失敗しました")
+                return []
+        
+        try:
+            logger.info("J-Quants APIで全上場企業一覧を取得中...")
+            
+            url = f"{self.base_url}/listed/info"
+            headers = {
+                'Authorization': f'Bearer {self.id_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            response = self.session.get(url, headers=headers, timeout=30)
+            
+            if response.status_code != 200:
+                logger.error(f"J-Quants API企業一覧取得エラー: {response.status_code}")
+                return []
+            
+            data = response.json()
+            companies = data.get('info', [])
+            
+            # 統一フォーマットで返す
+            result = []
+            for company in companies[:limit]:
+                result.append({
+                    'symbol': company.get('Code', ''),
+                    'name': company.get('CompanyName', ''),
+                    'name_english': company.get('CompanyNameEnglish', ''),
+                    'name_full': company.get('CompanyNameFull', ''),
+                    'sector': company.get('Sector33CodeName', ''),
+                    'sector17': company.get('Sector17CodeName', ''),
+                    'market': self._get_market_name(company.get('MarketCode', '')),
+                    'market_code': company.get('MarketCode', ''),
+                    'scale': company.get('ScaleCategory', ''),
+                    'listing_date': company.get('ListingDate', ''),
+                    'source': 'jquants'
+                })
+            
+            logger.info(f"J-Quants API企業一覧取得完了: {len(result)}件")
+            return result
+            
+        except Exception as e:
+            logger.error(f"J-Quants API企業一覧取得エラー: {str(e)}")
+            return []

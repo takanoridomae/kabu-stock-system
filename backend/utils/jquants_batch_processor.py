@@ -210,13 +210,33 @@ class JQuantsBatchProcessor:
             if stock_data.get('roa') is not None:
                 financial_data['roa'] = float(stock_data['roa'])
             
+            if stock_data.get('net_sales') is not None:
+                financial_data['net_sales'] = float(stock_data['net_sales'])
+            
+            if stock_data.get('operating_profit') is not None:
+                financial_data['operating_profit'] = float(stock_data['operating_profit'])
+            
             # データがある場合のみ更新
             if financial_data:
-                financial_metrics_model.create_or_update(
+                # 財務データの基準日を使用（価格日とは別）
+                report_date = stock_data.get('report_date') or stock_data['price_date']
+                
+                result_info = financial_metrics_model.create_or_update(
                     company_id=company_id,
-                    report_date=stock_data['price_date'],
+                    report_date=report_date,
                     **financial_data
                 )
+                
+                # 同一日データで差異がある場合は強制更新
+                if result_info.get('status') == 'warning':
+                    logger.info(f"既存データに差異があるため強制更新を実行: {result_info['message']}")
+                    financial_metrics_model.force_update(
+                        company_id=company_id,
+                        report_date=report_date,
+                        **financial_data
+                    )
+                
+                logger.info(f"財務指標保存: 企業ID={company_id}, 基準日={report_date}, データ={financial_data}")
                 
                 return {
                     'success': True,

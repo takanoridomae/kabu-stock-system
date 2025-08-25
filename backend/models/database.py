@@ -222,8 +222,8 @@ class FinancialMetrics:
         
         query = """
         INSERT OR REPLACE INTO financial_metrics 
-        (company_id, pbr, per, equity_ratio, roe, roa, report_date)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        (company_id, pbr, per, equity_ratio, roe, roa, net_sales, operating_profit, report_date)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         
         params = (
@@ -233,6 +233,8 @@ class FinancialMetrics:
             metrics.get('equity_ratio'),
             metrics.get('roe'),
             metrics.get('roa'),
+            metrics.get('net_sales'),
+            metrics.get('operating_profit'),
             report_date
         )
         
@@ -245,7 +247,7 @@ class FinancialMetrics:
         
         # 既存データの確認
         existing_query = """
-        SELECT id, pbr, per, equity_ratio, roe, roa FROM financial_metrics 
+        SELECT id, pbr, per, equity_ratio, roe, roa, net_sales, operating_profit FROM financial_metrics 
         WHERE company_id = ? AND report_date = ?
         """
         existing = self.db.execute_query(existing_query, (company_id, report_date))
@@ -258,7 +260,9 @@ class FinancialMetrics:
                 'per': existing_data['per'],
                 'equity_ratio': existing_data['equity_ratio'],
                 'roe': existing_data['roe'],
-                'roa': existing_data['roa']
+                'roa': existing_data['roa'],
+                'net_sales': existing_data['net_sales'],
+                'operating_profit': existing_data['operating_profit']
             }
             
             new_metrics = {
@@ -266,7 +270,9 @@ class FinancialMetrics:
                 'per': metrics.get('per'),
                 'equity_ratio': metrics.get('equity_ratio'),
                 'roe': metrics.get('roe'),
-                'roa': metrics.get('roa')
+                'roa': metrics.get('roa'),
+                'net_sales': metrics.get('net_sales'),
+                'operating_profit': metrics.get('operating_profit')
             }
             
             # データ差異をチェック
@@ -302,8 +308,8 @@ class FinancialMetrics:
             # 新規作成
             query = """
             INSERT INTO financial_metrics 
-            (company_id, pbr, per, equity_ratio, roe, roa, report_date)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            (company_id, pbr, per, equity_ratio, roe, roa, net_sales, operating_profit, report_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             
             params = (
@@ -313,6 +319,8 @@ class FinancialMetrics:
                 metrics.get('equity_ratio'),
                 metrics.get('roe'),
                 metrics.get('roa'),
+                metrics.get('net_sales'),
+                metrics.get('operating_profit'),
                 report_date
             )
             
@@ -327,7 +335,7 @@ class FinancialMetrics:
         """強制更新（データ修正用）"""
         query = """
         UPDATE financial_metrics 
-        SET pbr = ?, per = ?, equity_ratio = ?, roe = ?, roa = ?
+        SET pbr = ?, per = ?, equity_ratio = ?, roe = ?, roa = ?, net_sales = ?, operating_profit = ?
         WHERE company_id = ? AND report_date = ?
         """
         
@@ -337,6 +345,8 @@ class FinancialMetrics:
             metrics.get('equity_ratio'),
             metrics.get('roe'),
             metrics.get('roa'),
+            metrics.get('net_sales'),
+            metrics.get('operating_profit'),
             company_id,
             report_date
         )
