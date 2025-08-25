@@ -18,6 +18,13 @@ python-dateutil==2.8.2
 requests==2.31.0
 urllib3==2.0.7
 
+# 株価データ取得用
+yfinance==0.2.28
+pandas>=1.3.0
+
+# J-Quants API（日本取引所公式API）
+# jquants-api-client>=1.0.0  # 一時的にコメントアウト（環境問題のため）
+
 # JSON処理の拡張（標準ライブラリで十分だが、パフォーマンス向上のため）
 # simplejson==3.19.2  # オプション
 

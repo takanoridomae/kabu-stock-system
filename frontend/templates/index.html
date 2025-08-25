@@ -68,9 +68,20 @@
                 <h5 class="mb-0">
                     <i class="fas fa-building me-2"></i>登録済み企業データ
                 </h5>
-                <button class="btn btn-sm btn-outline-primary" onclick="loadRecentCompanies()">
-                    <i class="fas fa-sync-alt me-1"></i>更新
-                </button>
+                <div class="btn-group" role="group">
+                    <button class="btn btn-sm btn-outline-primary" onclick="forceReloadCompanies()">
+                        <i class="fas fa-sync-alt me-1"></i>更新
+                    </button>
+                    <button class="btn btn-sm btn-warning" onclick="showManualDataEntryModal()">
+                        <i class="fas fa-edit me-1"></i>手動入力
+                    </button>
+                    <button class="btn btn-sm btn-success" onclick="showJQuantsDataFetchModal()">
+                        <i class="fas fa-cloud-download-alt me-1"></i>J-Quants API
+                    </button>
+                    <button class="btn btn-sm btn-outline-info" onclick="showDataStatusModal()">
+                        <i class="fas fa-chart-line me-1"></i>データ状況
+                    </button>
+                </div>
             </div>
             <div class="card-body">
                 <div id="recentCompaniesLoading" class="text-center">
@@ -88,10 +99,11 @@
                                     <th>企業名</th>
                                     <th>業種</th>
                                     <th>市場</th>
-                                    <th>現在株価</th>
-                                    <th>PBR</th>
-                                    <th>PER</th>
-                                    <th>操作</th>
+                                                        <th>現在株価</th>
+                    <th>PBR</th>
+                    <th>PER</th>
+                    <th>最終更新</th>
+                    <th>操作</th>
                                 </tr>
                             </thead>
                             <tbody id="recentCompaniesBody">
@@ -121,6 +133,9 @@
             <button class="btn btn-outline-info" onclick="showImportModal()">
                 <i class="fas fa-upload me-1"></i>データインポート
             </button>
+            <button class="btn btn-outline-warning" onclick="showFileLoaderModal()">
+                <i class="fas fa-folder-open me-1"></i>サーバーファイル読込
+            </button>
         </div>
     </div>
 </div>
@@ -147,70 +162,1017 @@
         </div>
     </div>
 </div>
+
+<!-- ファイル読み込みモーダル -->
+<div class="modal fade" id="fileLoaderModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">サーバーファイル読み込み</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="fileListLoading" class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">読み込み中...</span>
+                    </div>
+                    <p class="mt-2">ファイル一覧を取得中...</p>
+                </div>
+                <div id="fileListContent" style="display: none;">
+                    <div class="mb-3">
+                        <h6>利用可能なファイル一覧</h6>
+                        <div class="table-responsive">
+                            <table class="table table-hover table-sm">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ファイル名</th>
+                                        <th>サイズ</th>
+                                        <th>更新日時</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="fileListBody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div id="selectedFileInfo" style="display: none;" class="alert alert-info">
+                        <h6>選択されたファイル</h6>
+                        <div id="selectedFileDetails"></div>
+                        <div class="mt-3">
+                            <button class="btn btn-primary me-2" onclick="loadFileContent()">
+                                <i class="fas fa-eye me-1"></i>内容を表示
+                            </button>
+                            <button class="btn btn-success" onclick="loadAndImportFile()">
+                                <i class="fas fa-database me-1"></i>読み込み&インポート
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div id="noFilesMessage" style="display: none;" class="text-center text-muted">
+                    <i class="fas fa-info-circle me-2"></i>
+                    利用可能なファイルがありません。
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+                <button type="button" class="btn btn-outline-primary" onclick="refreshFileList()">
+                    <i class="fas fa-sync-alt me-1"></i>更新
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ファイル内容表示モーダル -->
+<div class="modal fade" id="fileContentModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">ファイル内容</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="fileContentInfo" class="mb-3"></div>
+                <div id="fileContentLoading" class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">読み込み中...</span>
+                    </div>
+                    <p class="mt-2">ファイル内容を読み込み中...</p>
+                </div>
+                <div id="fileContentDisplay" style="display: none;">
+                    <pre id="fileContentText" class="bg-light p-3" style="max-height: 400px; overflow-y: auto;"></pre>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+                <button type="button" class="btn btn-success" onclick="importDisplayedContent()">
+                    <i class="fas fa-database me-1"></i>このデータをインポート
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 株価データ取得モーダル -->
+<div class="modal fade" id="stockDataFetchModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-download me-2"></i>株価データ手動取得
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">取得オプション</label>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="fetchOption" id="fetchAll" value="all" checked>
+                                <label class="form-check-label" for="fetchAll">
+                                    <strong>全企業のデータを取得</strong><br>
+                                    <small class="text-muted">登録済みの全企業の株価・財務データを一括取得</small>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="fetchOption" id="fetchSpecific" value="specific">
+                                <label class="form-check-label" for="fetchSpecific">
+                                    <strong>特定企業のみ取得</strong><br>
+                                    <small class="text-muted">指定した企業コードのデータのみ取得</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="specificSymbolsDiv" style="display: none;" class="mb-3">
+                    <label for="specificSymbols" class="form-label">企業コード（カンマ区切り）</label>
+                    <input type="text" class="form-control" id="specificSymbols" 
+                           placeholder="例: 7203,6758,9984" 
+                           data-bs-toggle="tooltip" 
+                           title="企業コードをカンマ区切りで入力してください（例: 7203,6758,9984）">
+                    <div class="form-text">登録済み企業コード: <span id="availableSymbols">読み込み中...</span></div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="maxCompanies" class="form-label">最大取得企業数</label>
+                        <input type="number" class="form-control" id="maxCompanies" min="1" max="100" 
+                               placeholder="未指定の場合は全企業">
+                        <div class="form-text">大量取得時の制限用（推奨: 10企業以下）</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check mt-4">
+                            <input class="form-check-input" type="checkbox" id="forceUpdate">
+                            <label class="form-check-label" for="forceUpdate">
+                                強制更新
+                            </label>
+                            <div class="form-text">既存データがあっても再取得する</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-danger">
+                    <h6><i class="fas fa-exclamation-triangle me-2"></i>重要な注意事項</h6>
+                    <ul class="mb-0">
+                        <li><strong>⚠️ 現在無効化中</strong>: Yahoo!ファイナンスの利用規約により自動取得は禁止されています</li>
+                        <li>代替手段として手動でのデータ入力をご利用ください</li>
+                        <li>公式APIサービス（J-Quants等）への移行を検討中です</li>
+                        <li>詳細は管理者にお問い合わせください</li>
+                    </ul>
+                </div>
+                
+                <div id="fetchProgress" style="display: none;">
+                    <div class="mb-2">
+                        <strong>取得進捗</strong>
+                        <div class="progress">
+                            <div id="fetchProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 role="progressbar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div id="fetchStatus" class="text-muted">準備中...</div>
+                </div>
+                
+                <div id="fetchResults" style="display: none;">
+                    <h6>取得結果</h6>
+                    <div id="fetchResultsSummary" class="alert alert-info"></div>
+                    <div class="accordion" id="fetchResultsAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                        data-bs-target="#fetchResultsDetails">
+                                    詳細結果を表示
+                                </button>
+                            </h2>
+                            <div id="fetchResultsDetails" class="accordion-collapse collapse">
+                                <div class="accordion-body">
+                                    <div id="fetchResultsDetailContent"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+                <button type="button" class="btn btn-secondary" id="startFetchBtn" disabled 
+                        data-bs-toggle="tooltip" title="利用規約により現在無効化されています">
+                    <i class="fas fa-ban me-1"></i>一時無効
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- データ状況確認モーダル -->
+<div class="modal fade" id="dataStatusModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-chart-line me-2"></i>データベース状況
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="dataStatusLoading" class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">読み込み中...</span>
+                    </div>
+                    <p class="mt-2">データ状況を確認中...</p>
+                </div>
+                <div id="dataStatusContent" style="display: none;">
+                    <div class="row mb-3">
+                        <div class="col-md-3 text-center">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body">
+                                    <h3 id="totalCompanies">-</h3>
+                                    <small>総企業数</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <div class="card bg-success text-white">
+                                <div class="card-body">
+                                    <h3 id="companiesWithPrice">-</h3>
+                                    <small>株価データあり</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <div class="card bg-info text-white">
+                                <div class="card-body">
+                                    <h3 id="companiesWithFinancial">-</h3>
+                                    <small>財務データあり</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <div class="card bg-warning text-white">
+                                <div class="card-body">
+                                    <h3 id="companiesNeedUpdate">-</h3>
+                                    <small>要更新</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-info-circle me-2"></i>最終更新情報</h6>
+                        <p id="lastUpdateInfo" class="mb-0">-</p>
+                    </div>
+                    <div class="mt-3">
+                        <h6>データ保存確認</h6>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                株価データ保存状況
+                                <span id="stockDataStatus" class="badge bg-secondary">確認中</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                財務指標保存状況
+                                <span id="financialDataStatus" class="badge bg-secondary">確認中</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                価格統計保存状況
+                                <span id="priceStatsStatus" class="badge bg-secondary">確認中</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+                <button type="button" class="btn btn-primary" onclick="refreshDataStatus()">
+                    <i class="fas fa-sync-alt me-1"></i>再読み込み
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 手動データ入力モーダル -->
+<div class="modal fade" id="manualDataEntryModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-edit me-2"></i>手動データ入力
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-info-circle me-2"></i>データ入力方法</h6>
+                    <p class="mb-0">Yahoo!ファイナンス等から手動で取得したデータを入力してください。</p>
+                </div>
+                
+                <form id="manualDataForm">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="manualSymbol" class="form-label">企業コード <span class="text-danger">*</span></label>
+                            <select class="form-control" id="manualSymbol" required>
+                                <option value="">企業を選択してください</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="manualDate" class="form-label">データ日付 <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="manualDate" required>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="manualPrice" class="form-label">株価（円）</label>
+                            <input type="number" class="form-control" id="manualPrice" step="0.01" min="0">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="manualVolume" class="form-label">出来高</label>
+                            <input type="number" class="form-control" id="manualVolume" min="0">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="manualPBR" class="form-label">PBR</label>
+                            <input type="number" class="form-control" id="manualPBR" step="0.01" min="0">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="manualPER" class="form-label">PER</label>
+                            <input type="number" class="form-control" id="manualPER" step="0.01" min="0">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="manualROE" class="form-label">ROE（%）</label>
+                            <input type="number" class="form-control" id="manualROE" step="0.01" min="0" max="100">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="manualEquityRatio" class="form-label">自己資本比率（%）</label>
+                            <input type="number" class="form-control" id="manualEquityRatio" step="0.01" min="0" max="100">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="manualROA" class="form-label">ROA（%）</label>
+                            <input type="number" class="form-control" id="manualROA" step="0.01" min="0" max="100">
+                        </div>
+                    </div>
+                </form>
+                
+                <div class="alert alert-warning">
+                    <h6><i class="fas fa-lightbulb me-2"></i>データ取得のヒント</h6>
+                    <ul class="mb-0">
+                        <li>Yahoo!ファイナンス: 手動でデータを確認・コピー</li>
+                        <li>証券会社サイト: ログイン後のデータ画面</li>
+                        <li>企業IR情報: 公式決算資料</li>
+                        <li>日経新聞等: 金融情報サイト</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" onclick="saveManualData()">
+                    <i class="fas fa-save me-1"></i>保存
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- J-Quants APIデータ取得モーダル -->
+<div class="modal fade" id="jquantsDataFetchModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-cloud-download-alt me-2"></i>J-Quants API株価データ取得
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-info-circle me-2"></i>J-Quants APIについて</h6>
+                    <p class="mb-1">日本取引所公式のAPIサービスです。完全に合法で高精度なデータを取得できます。</p>
+                    <small><strong>注意</strong>: 利用にはJ-Quants APIアカウントの登録と認証情報が必要です。</small>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">認証方法</label>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="authMethod" id="authToken" value="token" checked>
+                                <label class="form-check-label" for="authToken">
+                                    <strong>リフレッシュトークン</strong><br>
+                                    <small class="text-muted">推奨方法</small>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="authMethod" id="authEmail" value="email">
+                                <label class="form-check-label" for="authEmail">
+                                    <strong>メール・パスワード</strong><br>
+                                    <small class="text-muted">従来方法</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="tokenAuthDiv" class="mb-3">
+                    <label for="jquantsRefreshToken" class="form-label">リフレッシュトークン</label>
+                    <input type="password" class="form-control" id="jquantsRefreshToken" 
+                           placeholder="J-Quants APIのリフレッシュトークンを入力">
+                    <div class="form-text">
+                        <a href="https://application.jpx-jquants.com/" target="_blank">J-Quants API</a>にログインして取得してください
+                    </div>
+                </div>
+                
+                <div id="emailAuthDiv" style="display: none;">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="jquantsEmail" class="form-label">メールアドレス</label>
+                            <input type="email" class="form-control" id="jquantsEmail" 
+                                   placeholder="J-Quantsアカウントのメール">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="jquantsPassword" class="form-label">パスワード</label>
+                            <input type="password" class="form-control" id="jquantsPassword" 
+                                   placeholder="J-Quantsアカウントのパスワード">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">取得オプション</label>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="jquantsFetchOption" id="jquantsFetchAll" value="all" checked>
+                                <label class="form-check-label" for="jquantsFetchAll">
+                                    <strong>全企業のデータを取得</strong><br>
+                                    <small class="text-muted">登録済みの全企業を一括処理</small>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="jquantsFetchOption" id="jquantsFetchSpecific" value="specific">
+                                <label class="form-check-label" for="jquantsFetchSpecific">
+                                    <strong>特定企業のみ取得</strong><br>
+                                    <small class="text-muted">指定した企業コードのデータのみ</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="jquantsSpecificSymbolsDiv" style="display: none;" class="mb-3">
+                    <label for="jquantsSpecificSymbols" class="form-label">企業コード（カンマ区切り）</label>
+                    <input type="text" class="form-control" id="jquantsSpecificSymbols" 
+                           placeholder="例: 7203,6758,9984">
+                    <div class="form-text">登録済み企業コード: <span id="jquantsAvailableSymbols">読み込み中...</span></div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="jquantsMaxCompanies" class="form-label">最大取得企業数</label>
+                        <input type="number" class="form-control" id="jquantsMaxCompanies" min="1" max="50" 
+                               placeholder="未指定の場合は全企業">
+                        <div class="form-text">J-Quants APIの制限を考慮（推奨: 10企業以下）</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="jquantsTargetDate" class="form-label">取得日付</label>
+                        <input type="date" class="form-control" id="jquantsTargetDate">
+                        <div class="form-text">未指定の場合は最新営業日</div>
+                    </div>
+                </div>
+                
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="jquantsForceUpdate">
+                    <label class="form-check-label" for="jquantsForceUpdate">
+                        強制更新（既存データを上書き）
+                    </label>
+                </div>
+                
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="jquantsSaveToken" checked>
+                    <label class="form-check-label" for="jquantsSaveToken">
+                        <strong>リフレッシュトークンを保存</strong><br>
+                        <small class="text-muted">次回から自動的にトークンを使用（1週間有効）</small>
+                    </label>
+                </div>
+                
+                <div class="alert alert-success">
+                    <h6><i class="fas fa-check-circle me-2"></i>J-Quants APIの特徴</h6>
+                    <ul class="mb-0">
+                        <li>✅ 日本取引所公式API（完全に合法）</li>
+                        <li>✅ 高精度で信頼性の高いデータ</li>
+                        <li>✅ 株価、財務指標、企業情報を包括的に取得</li>
+                        <li>✅ Freeプランあり（制限あり）</li>
+                    </ul>
+                </div>
+                
+                <div id="jquantsTokenStatus" style="display: none;">
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-clock me-2"></i>保存済みトークン状況</h6>
+                        <div id="jquantsTokenStatusContent"></div>
+                    </div>
+                </div>
+                
+                <div id="jquantsFetchProgress" style="display: none;">
+                    <div class="mb-2">
+                        <strong>取得進捗</strong>
+                        <div class="progress">
+                            <div id="jquantsFetchProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 role="progressbar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div id="jquantsFetchStatus" class="text-muted">準備中...</div>
+                </div>
+                
+                <div id="jquantsFetchResults" style="display: none;">
+                    <h6>取得結果</h6>
+                    <div id="jquantsFetchResultsSummary" class="alert alert-info"></div>
+                    <div class="accordion" id="jquantsFetchResultsAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                        data-bs-target="#jquantsFetchResultsDetails">
+                                    詳細結果を表示
+                                </button>
+                            </h2>
+                            <div id="jquantsFetchResultsDetails" class="accordion-collapse collapse">
+                                <div class="accordion-body">
+                                    <div id="jquantsFetchResultsDetailContent"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" onclick="validateJQuantsToken()">
+                    <i class="fas fa-check-circle me-1"></i>トークン検証
+                </button>
+                <button type="button" class="btn btn-outline-info" onclick="testJQuantsAuth()">
+                    <i class="fas fa-tools me-1"></i>認証テスト
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+                <button type="button" class="btn btn-success" id="startJQuantsFetchBtn" onclick="startJQuantsDataFetch()">
+                    <i class="fas fa-play me-1"></i>取得開始
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
 // ページ読み込み時に最近の企業データを取得
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('ページ読み込み完了 - 企業データ取得開始');
     loadRecentCompanies();
 });
 
 function loadRecentCompanies() {
+    console.log('loadRecentCompanies関数開始');
+    
     const loadingDiv = document.getElementById('recentCompaniesLoading');
     const tableDiv = document.getElementById('recentCompaniesTable');
     const noDataDiv = document.getElementById('noCompaniesMessage');
     
+    if (!loadingDiv || !tableDiv || !noDataDiv) {
+        console.error('必要なDOM要素が見つかりません:', {
+            loading: !!loadingDiv,
+            table: !!tableDiv,
+            noData: !!noDataDiv
+        });
+        return;
+    }
+    
+    console.log('ローディング表示開始');
     loadingDiv.style.display = 'block';
     tableDiv.style.display = 'none';
     noDataDiv.style.display = 'none';
     
-    fetch('/api/companies')
-        .then(response => response.json())
+    console.log('企業データAPI呼び出し開始: /api/companies');
+    const startTime = Date.now();
+    
+    // タイムアウト処理（10秒）
+    const timeoutId = setTimeout(() => {
+        console.error('企業データAPI取得がタイムアウトしました（10秒）');
+        loadingDiv.style.display = 'none';
+        noDataDiv.style.display = 'block';
+        showAlert('⏰ データ取得がタイムアウトしました\n\n💡 解決策:\n　1️⃣ ページを再読み込み (F5)\n　2️⃣ サーバーの負荷状況を確認\n　3️⃣ ネットワーク接続を確認', 'warning', 10000);
+    }, 10000);
+    
+    fetch('/api/companies', {
+        // フェッチ自体のタイムアウト設定
+        signal: AbortSignal.timeout(8000)
+    })
+        .then(response => {
+            console.log('APIレスポンス受信:', response.status, response.statusText);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
         .then(data => {
+            clearTimeout(timeoutId); // タイムアウトをクリア
+            const duration = Date.now() - startTime;
+            console.log(`APIレスポンス解析完了 (${duration}ms):`, data);
+            
             loadingDiv.style.display = 'none';
             
-            if (data.success && data.data.length > 0) {
+            if (data.success && data.data && data.data.length > 0) {
+                console.log(`企業データ取得成功: ${data.data.length}件`);
                 displayRecentCompanies(data.data.slice(0, 10)); // 最新10件
                 tableDiv.style.display = 'block';
             } else {
+                console.log('企業データが空またはエラー:', data);
                 noDataDiv.style.display = 'block';
+                if (!data.success) {
+                    showAlert(`企業データ取得エラー: ${data.error || '不明なエラー'}`, 'danger', 8000);
+                }
             }
         })
         .catch(error => {
+            clearTimeout(timeoutId); // タイムアウトをクリア
+            const duration = Date.now() - startTime;
+            console.error(`企業データ取得エラー (${duration}ms):`, error);
+            
             loadingDiv.style.display = 'none';
             noDataDiv.style.display = 'block';
-            console.error('Error:', error);
+            
+            let errorMessage = '🔌 企業データの取得に失敗しました\n\n';
+            
+            if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                errorMessage += '❌ サーバーに接続できません\n\n';
+                errorMessage += '💡 解決策:\n';
+                errorMessage += '　1️⃣ Flaskサーバーが起動しているか確認\n';
+                errorMessage += '　2️⃣ ポート5000がブロックされていないか確認\n';
+                errorMessage += '　3️⃣ ブラウザを再読み込み (F5)\n';
+                errorMessage += '　4️⃣ http://127.0.0.1:5000 に直接アクセスして確認';
+            } else if (error.message.includes('HTTP')) {
+                errorMessage += `❌ HTTPエラー: ${error.message}\n\n`;
+                errorMessage += '💡 解決策:\n';
+                errorMessage += '　1️⃣ サーバーログ（PowerShell）を確認\n';
+                errorMessage += '　2️⃣ データベース接続を確認\n';
+                errorMessage += '　3️⃣ アプリケーションを再起動';
+            } else {
+                errorMessage += `❌ エラー詳細: ${error.message}\n\n`;
+                errorMessage += '💡 解決策:\n';
+                errorMessage += '　1️⃣ ブラウザのF12キー→ネットワークタブを確認\n';
+                errorMessage += '　2️⃣ コンソールログを確認\n';
+                errorMessage += '　3️⃣ キャッシュをクリア (Ctrl+F5)';
+            }
+            
+            showAlert(errorMessage, 'danger', 15000);
         });
+}
+
+// 強制リロード機能
+function forceReloadCompanies() {
+    console.log('企業データ強制リロード開始');
+    
+    const btn = document.querySelector('button[onclick="forceReloadCompanies()"]');
+    const originalContent = btn.innerHTML;
+    
+    // ボタンを一時的に無効化
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>更新中...';
+    
+    showAlert('📊 企業データを更新しています...', 'info', 3000);
+    
+    // キャッシュをクリアするためのパラメータ追加
+    const timestamp = Date.now();
+    
+    fetch(`/api/companies?_t=${timestamp}`, {
+        method: 'GET',
+        headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+        },
+        signal: AbortSignal.timeout(5000)
+    })
+    .then(response => {
+        console.log('強制リロードレスポンス:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('強制リロード成功:', data);
+        
+        if (data.success && data.data && data.data.length > 0) {
+            // DOM要素を直接更新
+            const tableDiv = document.getElementById('recentCompaniesTable');
+            const noDataDiv = document.getElementById('noCompaniesMessage');
+            const loadingDiv = document.getElementById('recentCompaniesLoading');
+            
+            loadingDiv.style.display = 'none';
+            noDataDiv.style.display = 'none';
+            
+            displayRecentCompanies(data.data.slice(0, 10));
+            tableDiv.style.display = 'block';
+            
+            showAlert(`✅ 企業データ更新完了！\n📊 ${data.data.length}件の企業データを読み込みました`, 'success', 5000);
+        } else {
+            showAlert('⚠️ 企業データが見つかりませんでした', 'warning', 5000);
+        }
+    })
+    .catch(error => {
+        console.error('強制リロードエラー:', error);
+        
+        let errorMsg = '❌ 企業データ更新に失敗しました\n\n';
+        
+        if (error.name === 'AbortError') {
+            errorMsg += '⏰ 更新がタイムアウトしました\n';
+            errorMsg += '💡 サーバーの負荷が高い可能性があります';
+        } else if (error.message.includes('Failed to fetch')) {
+            errorMsg += '🔌 サーバーに接続できません\n';
+            errorMsg += '💡 Flaskサーバーが起動しているか確認してください';
+        } else {
+            errorMsg += `🚫 エラー詳細: ${error.message}`;
+        }
+        
+        showAlert(errorMsg, 'danger', 10000);
+    })
+    .finally(() => {
+        // ボタンを元に戻す
+        btn.disabled = false;
+        btn.innerHTML = originalContent;
+    });
 }
 
 function displayRecentCompanies(companies) {
     const tbody = document.getElementById('recentCompaniesBody');
     tbody.innerHTML = '';
     
-    companies.forEach(company => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td><strong>${company.symbol}</strong></td>
-            <td>${company.name}</td>
-            <td>${company.sector || '-'}</td>
-            <td>${company.market || '-'}</td>
-            <td>${company.current_price ? '¥' + company.current_price.toLocaleString() : '-'}</td>
-            <td>${company.pbr ? company.pbr.toFixed(2) : '-'}</td>
-            <td>${company.per ? company.per.toFixed(2) : '-'}</td>
-            <td>
-                <button class="btn btn-sm btn-outline-info" onclick="viewCompanyDetail(${company.id})">
-                    <i class="fas fa-eye"></i>
-                </button>
-            </td>
-        `;
-        tbody.appendChild(row);
+    // 各企業の最新データ状況を取得
+    companies.forEach((company, index) => {
+        getCompanyDataStatus(company.id).then(status => {
+            const row = document.createElement('tr');
+            
+            // データの新しさに基づく表示スタイル
+            const isDataFresh = status.has_recent_data;
+            const rowClass = isDataFresh ? '' : 'table-warning';
+            if (rowClass) row.className = rowClass;
+            
+            // 最終更新日の表示
+            let lastUpdateDisplay = '-';
+            let lastUpdateIcon = 'fas fa-question-circle text-muted';
+            
+            if (status.last_stock_update) {
+                const updateDate = new Date(status.last_stock_update);
+                const now = new Date();
+                const daysDiff = Math.floor((now - updateDate) / (1000 * 60 * 60 * 24));
+                
+                if (daysDiff === 0) {
+                    lastUpdateDisplay = '今日';
+                    lastUpdateIcon = 'fas fa-check-circle text-success';
+                } else if (daysDiff === 1) {
+                    lastUpdateDisplay = '昨日';
+                    lastUpdateIcon = 'fas fa-clock text-warning';
+                } else if (daysDiff <= 7) {
+                    lastUpdateDisplay = `${daysDiff}日前`;
+                    lastUpdateIcon = 'fas fa-clock text-warning';
+                } else {
+                    lastUpdateDisplay = updateDate.toLocaleDateString('ja-JP');
+                    lastUpdateIcon = 'fas fa-exclamation-circle text-danger';
+                }
+            }
+            
+            row.innerHTML = `
+                <td><strong>${company.symbol}</strong></td>
+                <td>${company.name}</td>
+                <td>${company.sector || '-'}</td>
+                <td>${company.market || '-'}</td>
+                <td>${status.current_price ? '¥' + status.current_price.toLocaleString() : '-'}</td>
+                <td>${status.pbr ? status.pbr.toFixed(2) : '-'}</td>
+                <td>${status.per ? status.per.toFixed(2) : '-'}</td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <i class="${lastUpdateIcon} me-1" data-bs-toggle="tooltip" 
+                           title="株価データ最終更新: ${status.last_stock_update || '未取得'}"></i>
+                        <span class="small">${lastUpdateDisplay}</span>
+                    </div>
+                </td>
+                <td>
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-sm btn-outline-info" onclick="viewCompanyDetail(${company.id})" 
+                                data-bs-toggle="tooltip" title="詳細表示">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                                            <button class="btn btn-sm btn-outline-success" onclick="fetchSingleJQuantsData('${company.symbol}')"
+                            data-bs-toggle="tooltip" title="J-Quants APIで最新データ取得">
+                        <i class="fas fa-cloud-download-alt"></i>
+                    </button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(row);
+            
+            // ツールチップを再初期化
+            const tooltips = row.querySelectorAll('[data-bs-toggle="tooltip"]');
+            tooltips.forEach(tooltipEl => {
+                new bootstrap.Tooltip(tooltipEl);
+            });
+        });
     });
+}
+
+// 企業のデータ状況を取得する関数
+async function getCompanyDataStatus(companyId) {
+    try {
+        const response = await fetch(`/api/companies/${companyId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const company = data.data;
+            
+            // 最新の株価データがあるかチェック
+            const lastStockUpdate = company.latest_stock_price?.price_date;
+            const hasRecentData = lastStockUpdate ? 
+                (new Date() - new Date(lastStockUpdate)) / (1000 * 60 * 60 * 24) <= 1 : false;
+            
+            return {
+                has_recent_data: hasRecentData,
+                last_stock_update: lastStockUpdate,
+                current_price: company.latest_stock_price?.price,
+                pbr: company.latest_financial_metrics?.pbr,
+                per: company.latest_financial_metrics?.per,
+                volume: company.latest_stock_price?.volume
+            };
+        }
+    } catch (error) {
+        console.warn('企業データ状況の取得に失敗:', error);
+    }
+    
+    // デフォルト値を返す
+    return {
+        has_recent_data: false,
+        last_stock_update: null,
+        current_price: null,
+        pbr: null,
+        per: null,
+        volume: null
+    };
 }
 
 function viewCompanyDetail(companyId) {
     // 企業詳細ページに遷移（将来的に実装）
     showAlert('企業詳細機能は今後実装予定です。', 'info');
+}
+
+function fetchSingleCompanyData(symbol) {
+    if (!symbol) {
+        showAlert('企業コードが指定されていません。', 'warning');
+        return;
+    }
+    
+    // ボタンを無効化（該当する企業の行を探して）
+    const buttons = document.querySelectorAll(`button[onclick="fetchSingleCompanyData('${symbol}')"]`);
+    buttons.forEach(btn => {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        btn.classList.remove('btn-outline-success');
+        btn.classList.add('btn-warning');
+    });
+    
+    // 進行状況を表示
+    showAlert(`${symbol}: データ取得中...`, 'info', 10000);
+    
+    const requestData = {
+        force_update: true // 単一企業は常に強制更新
+    };
+    
+    const startTime = Date.now();
+    
+    fetch(`/api/stock-data/fetch/${symbol}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        const endTime = Date.now();
+        const duration = ((endTime - startTime) / 1000).toFixed(1);
+        
+        if (data.success) {
+            // 成功時の詳細表示
+            const resultData = data.data;
+            let message = `✅ ${symbol} の株価データを取得しました！ (${duration}秒)`;
+            
+            if (resultData.latest_price) {
+                message += `\n💰 最新株価: ¥${resultData.latest_price.toLocaleString()}`;
+            }
+            
+            if (resultData.price_date) {
+                message += `\n📅 データ日付: ${resultData.price_date}`;
+            }
+            
+            // 取得したデータの詳細
+            const details = [];
+            if (resultData.data_updated) {
+                details.push('株価データ');
+            }
+            if (resultData.message && resultData.message.includes('財務指標')) {
+                details.push('財務指標');
+            }
+            if (details.length > 0) {
+                message += `\n💾 更新項目: ${details.join(', ')}`;
+            }
+            
+            showAlert(message, 'success', 8000);
+            
+            // 成功時の通知音（ブラウザがサポートしている場合）
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance('データ取得完了');
+                utterance.volume = 0.1;
+                utterance.rate = 1.5;
+                speechSynthesis.speak(utterance);
+            }
+            
+            // ボタンを一時的に成功状態に
+            buttons.forEach(btn => {
+                btn.classList.remove('btn-warning');
+                btn.classList.add('btn-success');
+                btn.innerHTML = '<i class="fas fa-check"></i>';
+            });
+            
+            // DBに保存されたことを明示的に表示
+            setTimeout(() => {
+                showAlert(`💾 ${symbol} のデータがデータベースに保存されました`, 'info', 4000);
+            }, 2000);
+            
+            // 企業一覧を更新
+            setTimeout(() => {
+                loadRecentCompanies();
+            }, 1000);
+            
+        } else {
+            // 失敗時の詳細表示
+            let errorMessage = `❌ ${symbol} の株価データ取得に失敗しました (${duration}秒)`;
+            
+            if (data.error) {
+                errorMessage += `\n🚫 エラー: ${data.error}`;
+            }
+            
+            // 一般的なエラーの解決策を表示
+            if (data.error && data.error.includes('429')) {
+                errorMessage += '\n💡 解決策: レート制限のため、しばらく待ってから再試行してください';
+            } else if (data.error && data.error.includes('取得できませんでした')) {
+                errorMessage += '\n💡 解決策: 市場開場時間かネットワーク接続を確認してください';
+            }
+            
+            showAlert(errorMessage, 'danger', 10000);
+            
+            // ボタンを一時的にエラー状態に
+            buttons.forEach(btn => {
+                btn.classList.remove('btn-warning');
+                btn.classList.add('btn-danger');
+                btn.innerHTML = '<i class="fas fa-times"></i>';
+            });
+        }
+    })
+    .catch(error => {
+        const endTime = Date.now();
+        const duration = ((endTime - startTime) / 1000).toFixed(1);
+        
+        let errorMessage = `🔌 ${symbol} の株価データ取得中にネットワークエラーが発生しました (${duration}秒)`;
+        errorMessage += `\n🚫 エラー詳細: ${error.message}`;
+        errorMessage += '\n💡 解決策: ネットワーク接続とサーバー状態を確認してください';
+        
+        showAlert(errorMessage, 'danger', 10000);
+        console.error('Error:', error);
+        
+        // ボタンを一時的にエラー状態に
+        buttons.forEach(btn => {
+            btn.classList.remove('btn-warning');
+            btn.classList.add('btn-danger');
+            btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+        });
+    })
+    .finally(() => {
+        // 3秒後にボタンを元の状態に戻す
+        setTimeout(() => {
+            buttons.forEach(btn => {
+                btn.disabled = false;
+                btn.classList.remove('btn-warning', 'btn-success', 'btn-danger');
+                btn.classList.add('btn-outline-success');
+                btn.innerHTML = '<i class="fas fa-download"></i>';
+            });
+        }, 3000);
+    });
 }
 
 function showImportModal() {
@@ -261,6 +1223,1420 @@ function importData() {
     };
     
     reader.readAsText(file);
+}
+
+// ファイル読み込み機能
+let selectedFilename = null;
+let currentFileContent = null;
+
+function showFileLoaderModal() {
+    const modal = new bootstrap.Modal(document.getElementById('fileLoaderModal'));
+    modal.show();
+    loadFileList();
+}
+
+function loadFileList() {
+    const loadingDiv = document.getElementById('fileListLoading');
+    const contentDiv = document.getElementById('fileListContent');
+    const noFilesDiv = document.getElementById('noFilesMessage');
+    
+    loadingDiv.style.display = 'block';
+    contentDiv.style.display = 'none';
+    noFilesDiv.style.display = 'none';
+    
+    fetch('/api/files/list')
+        .then(response => response.json())
+        .then(data => {
+            loadingDiv.style.display = 'none';
+            
+            if (data.success && data.data.length > 0) {
+                displayFileList(data.data);
+                contentDiv.style.display = 'block';
+            } else {
+                noFilesDiv.style.display = 'block';
+            }
+        })
+        .catch(error => {
+            loadingDiv.style.display = 'none';
+            noFilesDiv.style.display = 'block';
+            console.error('Error:', error);
+            showAlert('ファイル一覧の取得に失敗しました: ' + error.message, 'danger');
+        });
+}
+
+function displayFileList(files) {
+    const tbody = document.getElementById('fileListBody');
+    tbody.innerHTML = '';
+    
+    files.forEach(file => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><strong>${file.filename}</strong></td>
+            <td>${formatFileSize(file.size)}</td>
+            <td>${file.modified_date}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary me-1" onclick="selectFile('${file.filename}')">
+                    <i class="fas fa-check"></i>選択
+                </button>
+                <button class="btn btn-sm btn-outline-info" onclick="previewFile('${file.filename}')">
+                    <i class="fas fa-eye"></i>プレビュー
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function selectFile(filename) {
+    selectedFilename = filename;
+    
+    // 選択されたファイルの詳細を表示
+    const selectedDiv = document.getElementById('selectedFileInfo');
+    const detailsDiv = document.getElementById('selectedFileDetails');
+    
+    detailsDiv.innerHTML = `
+        <div class="d-flex align-items-center">
+            <i class="fas fa-file-alt fa-2x text-primary me-3"></i>
+            <div>
+                <strong>${filename}</strong><br>
+                <small class="text-muted">選択済み</small>
+            </div>
+        </div>
+    `;
+    
+    selectedDiv.style.display = 'block';
+    
+    // 選択されたファイルの行をハイライト
+    document.querySelectorAll('#fileListBody tr').forEach(row => {
+        row.classList.remove('table-warning');
+    });
+    
+    // 該当する行を見つけてハイライト
+    const rows = document.querySelectorAll('#fileListBody tr');
+    rows.forEach(row => {
+        if (row.cells[0].textContent.trim() === filename) {
+            row.classList.add('table-warning');
+        }
+    });
+}
+
+function previewFile(filename) {
+    loadFileContent(filename, true);
+}
+
+function loadFileContent(filename = null, showModal = false) {
+    const targetFilename = filename || selectedFilename;
+    
+    if (!targetFilename) {
+        showAlert('ファイルが選択されていません。', 'warning');
+        return;
+    }
+    
+    if (showModal) {
+        const modal = new bootstrap.Modal(document.getElementById('fileContentModal'));
+        modal.show();
+        
+        const loadingDiv = document.getElementById('fileContentLoading');
+        const displayDiv = document.getElementById('fileContentDisplay');
+        
+        loadingDiv.style.display = 'block';
+        displayDiv.style.display = 'none';
+    }
+    
+    fetch(`/api/files/load/${targetFilename}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                currentFileContent = data.data;
+                
+                if (showModal) {
+                    displayFileContent(data);
+                } else {
+                    showAlert(`${targetFilename} の内容を読み込みました。`, 'success');
+                }
+            } else {
+                showAlert('ファイルの読み込みに失敗しました: ' + data.error, 'danger');
+            }
+        })
+        .catch(error => {
+            showAlert('ファイルの読み込み中にエラーが発生しました: ' + error.message, 'danger');
+            console.error('Error:', error);
+        });
+}
+
+function displayFileContent(data) {
+    const loadingDiv = document.getElementById('fileContentLoading');
+    const displayDiv = document.getElementById('fileContentDisplay');
+    const infoDiv = document.getElementById('fileContentInfo');
+    const textPre = document.getElementById('fileContentText');
+    
+    loadingDiv.style.display = 'none';
+    displayDiv.style.display = 'block';
+    
+    // ファイル情報を表示
+    infoDiv.innerHTML = `
+        <div class="alert alert-light">
+            <h6>${data.file_info.filename}</h6>
+            <small>
+                サイズ: ${formatFileSize(data.file_info.size)} | 
+                更新日時: ${data.file_info.modified_date}
+            </small>
+        </div>
+    `;
+    
+    // ファイル内容を表示（JSONを整形）
+    textPre.textContent = JSON.stringify(data.data, null, 2);
+}
+
+function loadAndImportFile() {
+    if (!selectedFilename) {
+        showAlert('ファイルが選択されていません。', 'warning');
+        return;
+    }
+    
+    if (confirm(`${selectedFilename} を読み込んでデータベースにインポートしますか？`)) {
+        fetch(`/api/files/load-and-import/${selectedFilename}`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(data.message, 'success');
+                loadRecentCompanies(); // 企業一覧を更新
+                
+                // モーダルを閉じる
+                const modal = bootstrap.Modal.getInstance(document.getElementById('fileLoaderModal'));
+                modal.hide();
+            } else {
+                showAlert('インポートに失敗しました: ' + data.error, 'danger');
+            }
+        })
+        .catch(error => {
+            showAlert('インポート中にエラーが発生しました: ' + error.message, 'danger');
+            console.error('Error:', error);
+        });
+    }
+}
+
+function importDisplayedContent() {
+    if (!currentFileContent) {
+        showAlert('表示されているファイル内容がありません。', 'warning');
+        return;
+    }
+    
+    if (confirm('表示されているデータをデータベースにインポートしますか？')) {
+        fetch('/api/import', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(currentFileContent)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(data.message, 'success');
+                loadRecentCompanies(); // 企業一覧を更新
+                
+                // モーダルを閉じる
+                const modal = bootstrap.Modal.getInstance(document.getElementById('fileContentModal'));
+                modal.hide();
+            } else {
+                showAlert('インポートに失敗しました: ' + data.error, 'danger');
+            }
+        })
+        .catch(error => {
+            showAlert('インポート中にエラーが発生しました: ' + error.message, 'danger');
+            console.error('Error:', error);
+        });
+    }
+}
+
+function refreshFileList() {
+    loadFileList();
+    
+    // 選択状態をリセット
+    selectedFilename = null;
+    currentFileContent = null;
+    document.getElementById('selectedFileInfo').style.display = 'none';
+}
+
+// 株価データ取得機能
+function showStockDataFetchModal() {
+    const modal = new bootstrap.Modal(document.getElementById('stockDataFetchModal'));
+    modal.show();
+    
+    // 登録済み企業コードを取得
+    loadAvailableSymbols();
+    
+    // ラジオボタンの変更イベント
+    document.querySelectorAll('input[name="fetchOption"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            toggleSpecificSymbolsDiv();
+        });
+    });
+}
+
+function loadAvailableSymbols() {
+    fetch('/api/companies')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const symbols = data.data.map(company => company.symbol).join(', ');
+                document.getElementById('availableSymbols').textContent = symbols;
+            } else {
+                document.getElementById('availableSymbols').textContent = '取得失敗';
+            }
+        })
+        .catch(error => {
+            document.getElementById('availableSymbols').textContent = 'エラー';
+            console.error('Error:', error);
+        });
+}
+
+function toggleSpecificSymbolsDiv() {
+    const fetchSpecific = document.getElementById('fetchSpecific').checked;
+    const specificDiv = document.getElementById('specificSymbolsDiv');
+    
+    if (fetchSpecific) {
+        specificDiv.style.display = 'block';
+    } else {
+        specificDiv.style.display = 'none';
+    }
+}
+
+function startStockDataFetch() {
+    const fetchOption = document.querySelector('input[name="fetchOption"]:checked').value;
+    const forceUpdate = document.getElementById('forceUpdate').checked;
+    const maxCompanies = document.getElementById('maxCompanies').value;
+    const specificSymbols = document.getElementById('specificSymbols').value;
+    
+    // バリデーション
+    if (fetchOption === 'specific' && !specificSymbols.trim()) {
+        showAlert('特定企業取得を選択した場合は企業コードを入力してください。', 'warning');
+        return;
+    }
+    
+    // ボタンを無効化
+    const startBtn = document.getElementById('startFetchBtn');
+    startBtn.disabled = true;
+    startBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>取得中...';
+    
+    // 進捗表示を開始
+    showFetchProgress();
+    
+    // APIリクエストのデータを構築
+    const requestData = {
+        force_update: forceUpdate
+    };
+    
+    if (maxCompanies) {
+        requestData.max_companies = parseInt(maxCompanies);
+    }
+    
+    if (fetchOption === 'specific') {
+        requestData.symbols = specificSymbols.split(',').map(s => s.trim()).filter(s => s);
+    }
+    
+    // APIコール
+    fetch('/api/stock-data/fetch', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideFetchProgress();
+        
+        if (data.success) {
+            showFetchResults(data);
+            showAlert('株価データの取得が完了しました。', 'success');
+            loadRecentCompanies(); // 企業一覧を更新
+        } else {
+            showAlert('株価データの取得に失敗しました: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        hideFetchProgress();
+        showAlert('株価データ取得中にエラーが発生しました: ' + error.message, 'danger');
+        console.error('Error:', error);
+    })
+    .finally(() => {
+        // ボタンを有効化
+        startBtn.disabled = false;
+        startBtn.innerHTML = '<i class="fas fa-play me-1"></i>取得開始';
+    });
+}
+
+function showFetchProgress() {
+    document.getElementById('fetchProgress').style.display = 'block';
+    document.getElementById('fetchResults').style.display = 'none';
+    
+    // プログレスバーをアニメーション
+    const progressBar = document.getElementById('fetchProgressBar');
+    const statusDiv = document.getElementById('fetchStatus');
+    
+    let progress = 0;
+    const interval = setInterval(() => {
+        progress += Math.random() * 10;
+        if (progress > 90) progress = 90; // 90%で止める
+        
+        progressBar.style.width = progress + '%';
+        progressBar.textContent = Math.round(progress) + '%';
+        
+        if (progress < 30) {
+            statusDiv.textContent = 'データ取得APIに接続中...';
+        } else if (progress < 60) {
+            statusDiv.textContent = '株価データを取得中...';
+        } else if (progress < 90) {
+            statusDiv.textContent = 'データベースに保存中...';
+        }
+    }, 500);
+    
+    // プログレスバーのIDを保存（後で停止するため）
+    window.stockFetchProgressInterval = interval;
+}
+
+function hideFetchProgress() {
+    if (window.stockFetchProgressInterval) {
+        clearInterval(window.stockFetchProgressInterval);
+    }
+    
+    // 完了状態に設定
+    const progressBar = document.getElementById('fetchProgressBar');
+    const statusDiv = document.getElementById('fetchStatus');
+    
+    progressBar.style.width = '100%';
+    progressBar.textContent = '100%';
+    statusDiv.textContent = '完了';
+    
+    setTimeout(() => {
+        document.getElementById('fetchProgress').style.display = 'none';
+    }, 1000);
+}
+
+function showFetchResults(data) {
+    const resultsDiv = document.getElementById('fetchResults');
+    const summaryDiv = document.getElementById('fetchResultsSummary');
+    const detailDiv = document.getElementById('fetchResultsDetailContent');
+    
+    // サマリー表示
+    const summary = data.summary;
+    summaryDiv.innerHTML = `
+        <div class="row text-center">
+            <div class="col-3">
+                <div class="fw-bold text-primary">${summary.total}</div>
+                <small>総企業数</small>
+            </div>
+            <div class="col-3">
+                <div class="fw-bold text-success">${summary.success}</div>
+                <small>成功</small>
+            </div>
+            <div class="col-3">
+                <div class="fw-bold text-danger">${summary.error}</div>
+                <small>エラー</small>
+            </div>
+            <div class="col-3">
+                <div class="fw-bold text-warning">${summary.skipped || 0}</div>
+                <small>スキップ</small>
+            </div>
+        </div>
+        <div class="mt-2">
+            <small class="text-muted">
+                処理時間: ${summary.processing_time_seconds ? Math.round(summary.processing_time_seconds) + '秒' : '不明'}
+            </small>
+        </div>
+    `;
+    
+    // 詳細結果表示
+    if (data.details && data.details.length > 0) {
+        let detailHtml = '<div class="table-responsive"><table class="table table-sm"><thead><tr><th>企業コード</th><th>ステータス</th><th>メッセージ</th><th>株価</th></tr></thead><tbody>';
+        
+        data.details.forEach(detail => {
+            const statusClass = detail.status === 'success' ? 'text-success' : 
+                               detail.status === 'error' ? 'text-danger' : 'text-warning';
+            const statusIcon = detail.status === 'success' ? 'fas fa-check-circle' :
+                              detail.status === 'error' ? 'fas fa-times-circle' : 'fas fa-minus-circle';
+            
+            detailHtml += `
+                <tr>
+                    <td><strong>${detail.symbol}</strong></td>
+                    <td class="${statusClass}">
+                        <i class="${statusIcon} me-1"></i>${detail.status}
+                    </td>
+                    <td>${detail.message}</td>
+                    <td>${detail.latest_price ? '¥' + detail.latest_price.toLocaleString() : '-'}</td>
+                </tr>
+            `;
+        });
+        
+        detailHtml += '</tbody></table></div>';
+        detailDiv.innerHTML = detailHtml;
+    } else {
+        detailDiv.innerHTML = '<div class="text-muted">詳細結果はありません。</div>';
+    }
+    
+    resultsDiv.style.display = 'block';
+}
+
+// データ状況確認機能
+function showDataStatusModal() {
+    const modal = new bootstrap.Modal(document.getElementById('dataStatusModal'));
+    modal.show();
+    loadDataStatus();
+}
+
+function loadDataStatus() {
+    const loadingDiv = document.getElementById('dataStatusLoading');
+    const contentDiv = document.getElementById('dataStatusContent');
+    
+    loadingDiv.style.display = 'block';
+    contentDiv.style.display = 'none';
+    
+    fetch('/api/stock-data/status')
+        .then(response => response.json())
+        .then(data => {
+            loadingDiv.style.display = 'none';
+            
+            if (data.success) {
+                displayDataStatus(data.data);
+                contentDiv.style.display = 'block';
+            } else {
+                showAlert('データ状況の取得に失敗しました: ' + data.error, 'danger');
+            }
+        })
+        .catch(error => {
+            loadingDiv.style.display = 'none';
+            showAlert('データ状況取得中にエラーが発生しました: ' + error.message, 'danger');
+            console.error('Error:', error);
+        });
+}
+
+function displayDataStatus(statusData) {
+    // 統計情報を表示
+    document.getElementById('totalCompanies').textContent = statusData.total_companies;
+    document.getElementById('companiesWithPrice').textContent = statusData.companies_with_price_data;
+    document.getElementById('companiesWithFinancial').textContent = statusData.companies_with_financial_data;
+    document.getElementById('companiesNeedUpdate').textContent = statusData.companies_need_update;
+    
+    // 最終更新情報
+    const lastUpdateInfo = document.getElementById('lastUpdateInfo');
+    if (statusData.last_updated) {
+        const updateDate = new Date(statusData.last_updated);
+        const now = new Date();
+        const timeDiff = Math.floor((now - updateDate) / (1000 * 60));
+        
+        let timeDisplay;
+        if (timeDiff < 1) {
+            timeDisplay = 'たった今';
+        } else if (timeDiff < 60) {
+            timeDisplay = `${timeDiff}分前`;
+        } else if (timeDiff < 1440) {
+            timeDisplay = `${Math.floor(timeDiff / 60)}時間前`;
+        } else {
+            timeDisplay = updateDate.toLocaleDateString('ja-JP') + ' ' + updateDate.toLocaleTimeString('ja-JP');
+        }
+        
+        lastUpdateInfo.textContent = `最終データ更新: ${timeDisplay} (${updateDate.toLocaleDateString('ja-JP')} ${updateDate.toLocaleTimeString('ja-JP')})`;
+    } else {
+        lastUpdateInfo.textContent = '最終データ更新: データがありません';
+    }
+    
+    // データ保存状況の確認
+    updateDataSaveStatus(statusData);
+}
+
+function updateDataSaveStatus(statusData) {
+    // 株価データ保存状況
+    const stockStatus = document.getElementById('stockDataStatus');
+    const stockRatio = statusData.total_companies > 0 ? 
+        (statusData.companies_with_price_data / statusData.total_companies * 100).toFixed(1) : 0;
+    
+    if (statusData.companies_with_price_data === statusData.total_companies) {
+        stockStatus.textContent = '完全 (100%)';
+        stockStatus.className = 'badge bg-success';
+    } else if (statusData.companies_with_price_data > 0) {
+        stockStatus.textContent = `部分的 (${stockRatio}%)`;
+        stockStatus.className = 'badge bg-warning';
+    } else {
+        stockStatus.textContent = 'なし (0%)';
+        stockStatus.className = 'badge bg-danger';
+    }
+    
+    // 財務指標保存状況
+    const financialStatus = document.getElementById('financialDataStatus');
+    const financialRatio = statusData.total_companies > 0 ? 
+        (statusData.companies_with_financial_data / statusData.total_companies * 100).toFixed(1) : 0;
+    
+    if (statusData.companies_with_financial_data === statusData.total_companies) {
+        financialStatus.textContent = '完全 (100%)';
+        financialStatus.className = 'badge bg-success';
+    } else if (statusData.companies_with_financial_data > 0) {
+        financialStatus.textContent = `部分的 (${financialRatio}%)`;
+        financialStatus.className = 'badge bg-warning';
+    } else {
+        financialStatus.textContent = 'なし (0%)';
+        financialStatus.className = 'badge bg-danger';
+    }
+    
+    // 価格統計保存状況（簡易計算）
+    const priceStatsStatus = document.getElementById('priceStatsStatus');
+    if (statusData.companies_with_price_data > 0) {
+        priceStatsStatus.textContent = '自動生成済み';
+        priceStatsStatus.className = 'badge bg-success';
+    } else {
+        priceStatsStatus.textContent = 'データなし';
+        priceStatsStatus.className = 'badge bg-secondary';
+    }
+}
+
+function refreshDataStatus() {
+    loadDataStatus();
+}
+
+// 手動データ入力機能
+function showManualDataEntryModal() {
+    const modal = new bootstrap.Modal(document.getElementById('manualDataEntryModal'));
+    modal.show();
+    
+    // 企業リストを読み込み
+    loadCompaniesForManualEntry();
+    
+    // 今日の日付をデフォルトに設定
+    document.getElementById('manualDate').valueAsDate = new Date();
+}
+
+function loadCompaniesForManualEntry() {
+    fetch('/api/companies')
+        .then(response => response.json())
+        .then(data => {
+            const select = document.getElementById('manualSymbol');
+            select.innerHTML = '<option value="">企業を選択してください</option>';
+            
+            if (data.success) {
+                data.data.forEach(company => {
+                    const option = document.createElement('option');
+                    option.value = company.symbol;
+                    option.textContent = `${company.symbol} - ${company.name}`;
+                    select.appendChild(option);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('企業一覧の取得に失敗:', error);
+            showAlert('企業一覧の取得に失敗しました', 'danger');
+        });
+}
+
+function saveManualData() {
+    const form = document.getElementById('manualDataForm');
+    
+    // バリデーション
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+    
+    const symbol = document.getElementById('manualSymbol').value;
+    const date = document.getElementById('manualDate').value;
+    const price = document.getElementById('manualPrice').value;
+    const volume = document.getElementById('manualVolume').value;
+    const pbr = document.getElementById('manualPBR').value;
+    const per = document.getElementById('manualPER').value;
+    const roe = document.getElementById('manualROE').value;
+    const equityRatio = document.getElementById('manualEquityRatio').value;
+    const roa = document.getElementById('manualROA').value;
+    
+    if (!symbol || !date) {
+        showAlert('企業コードとデータ日付は必須です', 'warning');
+        return;
+    }
+    
+    // データの構築
+    const requestData = {
+        symbol: symbol,
+        price_date: date
+    };
+    
+    // 株価データ
+    if (price) requestData.price = parseFloat(price);
+    if (volume) requestData.volume = parseInt(volume);
+    
+    // 財務指標データ
+    if (pbr) requestData.pbr = parseFloat(pbr);
+    if (per) requestData.per = parseFloat(per);
+    if (roe) requestData.roe = parseFloat(roe) / 100; // %を小数に変換
+    if (equityRatio) requestData.equity_ratio = parseFloat(equityRatio) / 100;
+    if (roa) requestData.roa = parseFloat(roa) / 100;
+    
+    // データ保存
+    fetch('/api/companies/register', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert(`${symbol} のデータを手動で保存しました`, 'success');
+            
+            // フォームをクリア
+            form.reset();
+            document.getElementById('manualDate').valueAsDate = new Date();
+            
+            // 企業一覧を更新
+            loadRecentCompanies();
+            
+            // モーダルを閉じる
+            const modal = bootstrap.Modal.getInstance(document.getElementById('manualDataEntryModal'));
+            modal.hide();
+            
+        } else {
+            showAlert('データの保存に失敗しました: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        showAlert('データ保存中にエラーが発生しました: ' + error.message, 'danger');
+        console.error('Error:', error);
+    });
+}
+
+// J-Quants API機能
+function showJQuantsDataFetchModal() {
+    const modal = new bootstrap.Modal(document.getElementById('jquantsDataFetchModal'));
+    modal.show();
+    
+    // 登録済み企業コードを取得
+    loadAvailableSymbolsForJQuants();
+    
+    // 保存済みトークンの状況を確認
+    checkSavedTokenStatus();
+    
+    // 認証方法の変更イベント
+    document.querySelectorAll('input[name="authMethod"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            toggleJQuantsAuthMethod();
+        });
+    });
+    
+    // 取得オプションの変更イベント
+    document.querySelectorAll('input[name="jquantsFetchOption"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            toggleJQuantsSpecificSymbolsDiv();
+        });
+    });
+}
+
+function loadAvailableSymbolsForJQuants() {
+    fetch('/api/companies')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const symbols = data.data.map(company => company.symbol).join(', ');
+                document.getElementById('jquantsAvailableSymbols').textContent = symbols;
+            } else {
+                document.getElementById('jquantsAvailableSymbols').textContent = '取得失敗';
+            }
+        })
+        .catch(error => {
+            document.getElementById('jquantsAvailableSymbols').textContent = 'エラー';
+            console.error('Error:', error);
+        });
+}
+
+function toggleJQuantsAuthMethod() {
+    const tokenAuth = document.getElementById('authToken').checked;
+    const tokenDiv = document.getElementById('tokenAuthDiv');
+    const emailDiv = document.getElementById('emailAuthDiv');
+    
+    if (tokenAuth) {
+        tokenDiv.style.display = 'block';
+        emailDiv.style.display = 'none';
+    } else {
+        tokenDiv.style.display = 'none';
+        emailDiv.style.display = 'block';
+    }
+}
+
+function toggleJQuantsSpecificSymbolsDiv() {
+    const fetchSpecific = document.getElementById('jquantsFetchSpecific').checked;
+    const specificDiv = document.getElementById('jquantsSpecificSymbolsDiv');
+    
+    if (fetchSpecific) {
+        specificDiv.style.display = 'block';
+    } else {
+        specificDiv.style.display = 'none';
+    }
+}
+
+function startJQuantsDataFetch() {
+    const authMethod = document.querySelector('input[name="authMethod"]:checked').value;
+    const fetchOption = document.querySelector('input[name="jquantsFetchOption"]:checked').value;
+    const forceUpdate = document.getElementById('jquantsForceUpdate').checked;
+    const maxCompanies = document.getElementById('jquantsMaxCompanies').value;
+    const targetDate = document.getElementById('jquantsTargetDate').value;
+    const specificSymbols = document.getElementById('jquantsSpecificSymbols').value;
+    
+    // 認証情報の取得
+    let authData = {};
+    if (authMethod === 'token') {
+        const refreshToken = document.getElementById('jquantsRefreshToken').value;
+        if (!refreshToken) {
+            showAlert('リフレッシュトークンを入力してください', 'warning');
+            return;
+        }
+        authData.refresh_token = refreshToken;
+    } else {
+        const email = document.getElementById('jquantsEmail').value;
+        const password = document.getElementById('jquantsPassword').value;
+        if (!email || !password) {
+            showAlert('メールアドレスとパスワードを入力してください', 'warning');
+            return;
+        }
+        authData.email = email;
+        authData.password = password;
+    }
+    
+    // バリデーション
+    if (fetchOption === 'specific' && !specificSymbols.trim()) {
+        showAlert('特定企業取得を選択した場合は企業コードを入力してください', 'warning');
+        return;
+    }
+    
+    // ボタンを無効化
+    const startBtn = document.getElementById('startJQuantsFetchBtn');
+    startBtn.disabled = true;
+    startBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>取得中...';
+    
+    // 進捗表示を開始
+    showJQuantsFetchProgress();
+    
+    // APIリクエストのデータを構築
+    const requestData = {
+        force_update: forceUpdate,
+        ...authData
+    };
+    
+    if (maxCompanies) {
+        requestData.max_companies = parseInt(maxCompanies);
+    }
+    
+    if (targetDate) {
+        requestData.date = targetDate;
+    }
+    
+    if (fetchOption === 'specific') {
+        requestData.symbols = specificSymbols.split(',').map(s => s.trim()).filter(s => s);
+    }
+    
+    // APIコール
+    fetch('/api/jquants-data/fetch', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideJQuantsFetchProgress();
+        
+        if (data.success) {
+            showJQuantsFetchResults(data);
+            showAlert('J-Quants APIでの株価データ取得が完了しました', 'success');
+            loadRecentCompanies(); // 企業一覧を更新
+        } else {
+            showAlert('J-Quants APIでの株価データ取得に失敗しました: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        hideJQuantsFetchProgress();
+        showAlert('J-Quants APIデータ取得中にエラーが発生しました: ' + error.message, 'danger');
+        console.error('Error:', error);
+    })
+    .finally(() => {
+        // ボタンを有効化
+        startBtn.disabled = false;
+        startBtn.innerHTML = '<i class="fas fa-play me-1"></i>取得開始';
+    });
+}
+
+function showJQuantsFetchProgress() {
+    document.getElementById('jquantsFetchProgress').style.display = 'block';
+    document.getElementById('jquantsFetchResults').style.display = 'none';
+    
+    // プログレスバーをアニメーション
+    const progressBar = document.getElementById('jquantsFetchProgressBar');
+    const statusDiv = document.getElementById('jquantsFetchStatus');
+    
+    let progress = 0;
+    const interval = setInterval(() => {
+        progress += Math.random() * 5; // J-Quants APIは処理時間が長めなので遅く
+        if (progress > 90) progress = 90;
+        
+        progressBar.style.width = progress + '%';
+        progressBar.textContent = Math.round(progress) + '%';
+        
+        if (progress < 20) {
+            statusDiv.textContent = 'J-Quants APIに認証中...';
+        } else if (progress < 50) {
+            statusDiv.textContent = '株価データを取得中...';
+        } else if (progress < 80) {
+            statusDiv.textContent = '財務データを取得中...';
+        } else if (progress < 90) {
+            statusDiv.textContent = 'データベースに保存中...';
+        }
+    }, 800); // 少し遅めのアニメーション
+    
+    window.jquantsFetchProgressInterval = interval;
+}
+
+function hideJQuantsFetchProgress() {
+    if (window.jquantsFetchProgressInterval) {
+        clearInterval(window.jquantsFetchProgressInterval);
+    }
+    
+    // 完了状態に設定
+    const progressBar = document.getElementById('jquantsFetchProgressBar');
+    const statusDiv = document.getElementById('jquantsFetchStatus');
+    
+    progressBar.style.width = '100%';
+    progressBar.textContent = '100%';
+    statusDiv.textContent = '完了';
+    
+    setTimeout(() => {
+        document.getElementById('jquantsFetchProgress').style.display = 'none';
+    }, 1000);
+}
+
+function showJQuantsFetchResults(data) {
+    const resultsDiv = document.getElementById('jquantsFetchResults');
+    const summaryDiv = document.getElementById('jquantsFetchResultsSummary');
+    const detailDiv = document.getElementById('jquantsFetchResultsDetailContent');
+    
+    // サマリー表示
+    const summary = data.summary;
+    summaryDiv.innerHTML = `
+        <div class="row text-center">
+            <div class="col-3">
+                <div class="fw-bold text-primary">${summary.total}</div>
+                <small>総企業数</small>
+            </div>
+            <div class="col-3">
+                <div class="fw-bold text-success">${summary.success}</div>
+                <small>成功</small>
+            </div>
+            <div class="col-3">
+                <div class="fw-bold text-danger">${summary.error}</div>
+                <small>エラー</small>
+            </div>
+            <div class="col-3">
+                <div class="fw-bold text-warning">${summary.skipped || 0}</div>
+                <small>スキップ</small>
+            </div>
+        </div>
+        <div class="mt-2">
+            <small class="text-muted">
+                処理時間: ${summary.processing_time_seconds ? Math.round(summary.processing_time_seconds) + '秒' : '不明'} | 
+                データソース: J-Quants API
+            </small>
+        </div>
+    `;
+    
+    // 詳細結果表示
+    if (data.details && data.details.length > 0) {
+        let detailHtml = '<div class="table-responsive"><table class="table table-sm"><thead><tr><th>企業コード</th><th>ステータス</th><th>メッセージ</th><th>株価</th><th>データソース</th></tr></thead><tbody>';
+        
+        data.details.forEach(detail => {
+            const statusClass = detail.status === 'success' ? 'text-success' : 
+                               detail.status === 'error' ? 'text-danger' : 'text-warning';
+            const statusIcon = detail.status === 'success' ? 'fas fa-check-circle' :
+                              detail.status === 'error' ? 'fas fa-times-circle' : 'fas fa-minus-circle';
+            
+            detailHtml += `
+                <tr>
+                    <td><strong>${detail.symbol}</strong></td>
+                    <td class="${statusClass}">
+                        <i class="${statusIcon} me-1"></i>${detail.status}
+                    </td>
+                    <td>${detail.message}</td>
+                    <td>${detail.latest_price ? '¥' + detail.latest_price.toLocaleString() : '-'}</td>
+                    <td><span class="badge bg-success">J-Quants</span></td>
+                </tr>
+            `;
+        });
+        
+        detailHtml += '</tbody></table></div>';
+        detailDiv.innerHTML = detailHtml;
+    } else {
+        detailDiv.innerHTML = '<div class="text-muted">詳細結果はありません。</div>';
+    }
+    
+    resultsDiv.style.display = 'block';
+}
+
+// 個別企業のJ-Quants APIデータ取得
+function fetchSingleJQuantsData(symbol) {
+    if (!symbol) {
+        showAlert('企業コードが指定されていません', 'warning');
+        return;
+    }
+    
+    // 認証情報の確認（簡易版として環境変数を使用）
+    showAlert(`${symbol}: J-Quants APIでデータ取得中...`, 'info', 10000);
+    
+    const buttons = document.querySelectorAll(`button[onclick="fetchSingleJQuantsData('${symbol}')"]`);
+    buttons.forEach(btn => {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        btn.classList.remove('btn-outline-success');
+        btn.classList.add('btn-warning');
+    });
+    
+    const requestData = {
+        force_update: true
+        // 認証情報は自動的にバックエンドで保存済みトークンを使用
+    };
+    
+    const startTime = Date.now();
+    
+    fetch(`/api/jquants-data/fetch/${symbol}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        const endTime = Date.now();
+        const duration = ((endTime - startTime) / 1000).toFixed(1);
+        
+        if (data.success) {
+            const resultData = data.data;
+            let message = `✅ ${symbol} のデータをJ-Quants APIで取得しました！ (${duration}秒)`;
+            
+            if (resultData.latest_price) {
+                message += `\n💰 最新株価: ¥${resultData.latest_price.toLocaleString()}`;
+            }
+            
+            if (resultData.price_date) {
+                message += `\n📅 データ日付: ${resultData.price_date}`;
+            }
+            
+            message += '\n🏛️ データソース: J-Quants API（日本取引所公式）';
+            
+            showAlert(message, 'success', 8000);
+            
+            buttons.forEach(btn => {
+                btn.classList.remove('btn-warning');
+                btn.classList.add('btn-success');
+                btn.innerHTML = '<i class="fas fa-check"></i>';
+            });
+            
+            setTimeout(() => {
+                showAlert(`💾 ${symbol} のデータがデータベースに保存されました`, 'info', 4000);
+                loadRecentCompanies();
+            }, 2000);
+            
+        } else {
+            let errorMessage = `❌ ${symbol} のJ-Quants APIデータ取得に失敗しました (${duration}秒)`;
+            
+            if (data.error) {
+                errorMessage += `\n🚫 エラー: ${data.error}`;
+            }
+            
+            if (data.error && data.error.includes('認証')) {
+                errorMessage += '\n💡 解決策: J-Quants APIの認証情報を確認してください';
+            }
+            
+            showAlert(errorMessage, 'danger', 10000);
+            
+            buttons.forEach(btn => {
+                btn.classList.remove('btn-warning');
+                btn.classList.add('btn-danger');
+                btn.innerHTML = '<i class="fas fa-times"></i>';
+            });
+        }
+    })
+    .catch(error => {
+        const endTime = Date.now();
+        const duration = ((endTime - startTime) / 1000).toFixed(1);
+        
+        let errorMessage = `🔌 ${symbol} のJ-Quants APIデータ取得中にエラーが発生しました (${duration}秒)`;
+        errorMessage += `\n🚫 エラー詳細: ${error.message}`;
+        
+        showAlert(errorMessage, 'danger', 10000);
+        
+        buttons.forEach(btn => {
+            btn.classList.remove('btn-warning');
+            btn.classList.add('btn-danger');
+            btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+        });
+    })
+    .finally(() => {
+        setTimeout(() => {
+            buttons.forEach(btn => {
+                btn.disabled = false;
+                btn.classList.remove('btn-warning', 'btn-success', 'btn-danger');
+                btn.classList.add('btn-outline-success');
+                btn.innerHTML = '<i class="fas fa-cloud-download-alt"></i>';
+            });
+        }, 3000);
+    });
+}
+
+// J-Quants API認証テスト
+function testJQuantsAuth() {
+    console.log('testJQuantsAuth関数が呼び出されました');
+    
+    try {
+        const authMethod = document.querySelector('input[name="authMethod"]:checked');
+        if (!authMethod) {
+            showAlert('認証方法が選択されていません', 'warning');
+            return;
+        }
+        const authValue = authMethod.value;
+        console.log('選択された認証方法:', authValue);
+    
+        // 認証情報の取得
+        let authData = {};
+        if (authValue === 'token') {
+            const refreshTokenField = document.getElementById('jquantsRefreshToken');
+            let refreshToken = refreshTokenField.value;
+            
+            // 保存済みトークンを使用する場合
+            if (!refreshToken && refreshTokenField.getAttribute('data-saved-token') === 'true') {
+                console.log('保存済みトークンを使用してAPIリクエストを送信');
+                // バックエンドで自動的に保存済みトークンを使用
+                authData = {}; // 空のデータで送信（バックエンドで自動取得）
+            } else if (refreshToken) {
+                console.log('入力されたリフレッシュトークン長:', refreshToken.length);
+                authData.refresh_token = refreshToken;
+            } else {
+                showAlert('リフレッシュトークンを入力するか、保存済みトークンを使用してください', 'warning');
+                return;
+            }
+    } else {
+        const email = document.getElementById('jquantsEmail').value;
+        const password = document.getElementById('jquantsPassword').value;
+        if (!email || !password) {
+            showAlert('メールアドレスとパスワードを入力してください', 'warning');
+            return;
+        }
+            authData.email = email;
+            authData.password = password;
+        }
+        
+        // テストボタンを無効化
+        const testBtn = document.querySelector('button[onclick="testJQuantsAuth()"]');
+        const originalText = testBtn.innerHTML;
+        testBtn.disabled = true;
+        testBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>テスト中...';
+        
+        showAlert('J-Quants API認証テストを開始しています...', 'info', 5000);
+        
+        fetch('/api/jquants-data/test-auth', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(authData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            let message = '✅ J-Quants API認証テスト成功！\n\n';
+            message += `🔑 認証状態: ${data.auth_status.authenticated ? '成功' : '失敗'}\n`;
+            message += `🎫 IDトークン長: ${data.auth_status.id_token_length} 文字\n\n`;
+            
+            if (data.test_data) {
+                message += `📈 テストデータ取得:\n`;
+                message += `　企業コード: ${data.test_data.symbol}\n`;
+                message += `　対象日付: ${data.test_data.date}\n`;
+                message += `　データ取得: ${data.test_data.data_available ? '成功' : '失敗'}\n`;
+                
+                if (data.test_data.data) {
+                    const testData = data.test_data.data;
+                    message += `　終値: ¥${testData.Close ? testData.Close.toLocaleString() : 'N/A'}\n`;
+                    message += `　出来高: ${testData.Volume ? testData.Volume.toLocaleString() : 'N/A'}\n`;
+                }
+            }
+            
+            message += '\n🎉 認証情報は正常です！データ取得を開始できます。';
+            
+            showAlert(message, 'success', 15000);
+            
+            // 認証成功時にトークンを保存
+            if (authValue === 'token') {
+                const refreshToken = document.getElementById('jquantsRefreshToken').value;
+                if (refreshToken) {
+                    saveJQuantsToken(refreshToken);
+                }
+            }
+            
+            // 成功時は音声フィードバック
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance('J-Quants API認証テスト成功');
+                utterance.lang = 'ja-JP';
+                utterance.rate = 1.2;
+                speechSynthesis.speak(utterance);
+            }
+            
+        } else {
+            let errorMessage = '❌ J-Quants API認証テスト失敗\n\n';
+            errorMessage += `🚫 エラー: ${data.error}\n\n`;
+            
+            // よくあるエラーの解決策を追加
+            if (data.error.includes('認証')) {
+                errorMessage += '💡 解決策:\n';
+                errorMessage += '　1️⃣ リフレッシュトークンが正しいか確認\n';
+                errorMessage += '　2️⃣ J-Quants APIにログインしてトークンを再取得\n';
+                errorMessage += '　3️⃣ プランが有効か確認（Standard/Light/Free）\n';
+                errorMessage += '　4️⃣ アカウントが凍結されていないか確認\n';
+            } else if (data.error.includes('ネットワーク') || data.error.includes('timeout')) {
+                errorMessage += '💡 解決策:\n';
+                errorMessage += '　1️⃣ インターネット接続を確認\n';
+                errorMessage += '　2️⃣ ファイアウォール設定を確認\n';
+                errorMessage += '　3️⃣ しばらく時間をおいて再試行\n';
+            }
+            
+            showAlert(errorMessage, 'danger', 20000);
+        }
+    })
+    .catch(error => {
+        let errorMessage = '🔌 J-Quants API認証テスト中にエラーが発生しました\n\n';
+        errorMessage += `🚫 エラー詳細: ${error.message}\n\n`;
+        errorMessage += '💡 解決策:\n';
+        errorMessage += '　1️⃣ ブラウザの開発者ツールでコンソールログを確認\n';
+        errorMessage += '　2️⃣ サーバーログを確認\n';
+        errorMessage += '　3️⃣ アプリケーションを再起動\n';
+        
+        showAlert(errorMessage, 'danger', 15000);
+        console.error('J-Quants Auth Test Error:', error);
+    })
+        .finally(() => {
+            // ボタンを有効化
+            testBtn.disabled = false;
+            testBtn.innerHTML = originalText;
+        });
+        
+    } catch (error) {
+        console.error('testJQuantsAuth関数エラー:', error);
+        showAlert(`❌ 認証テスト実行エラー: ${error.message}`, 'danger', 8000);
+        
+        // エラー時もボタンを有効化
+        const testBtn = document.querySelector('button[onclick="testJQuantsAuth()"]');
+        if (testBtn) {
+            testBtn.disabled = false;
+            testBtn.innerHTML = '<i class="fas fa-tools me-1"></i>認証テスト';
+        }
+    }
+}
+
+// J-Quants APIトークン検証
+function validateJQuantsToken() {
+    const authMethod = document.querySelector('input[name="authMethod"]:checked').value;
+    
+    if (authMethod !== 'token') {
+        showAlert('リフレッシュトークン認証を選択してください', 'warning');
+        return;
+    }
+    
+    const refreshToken = document.getElementById('jquantsRefreshToken').value;
+    if (!refreshToken) {
+        showAlert('リフレッシュトークンを入力してください', 'warning');
+        return;
+    }
+    
+    // ボタンを無効化
+    const validateBtn = document.querySelector('button[onclick="validateJQuantsToken()"]');
+    const originalText = validateBtn.innerHTML;
+    validateBtn.disabled = true;
+    validateBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>検証中...';
+    
+    showAlert('リフレッシュトークンの形式を検証しています...', 'info', 3000);
+    
+    fetch('/api/jquants-data/validate-token', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({refresh_token: refreshToken})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const tokenInfo = data.token_info;
+            let message = '🔍 リフレッシュトークン検証結果\n\n';
+            
+            message += `📏 トークン長: ${tokenInfo.length} 文字\n`;
+            message += `🔤 先頭20文字: ${tokenInfo.first_20_chars}\n`;
+            message += `🔤 末尾20文字: ${tokenInfo.last_20_chars}\n`;
+            message += `🎫 JWT形式: ${tokenInfo.is_jwt_like ? 'はい' : 'いいえ'}\n`;
+            message += `📊 JWT部分数: ${tokenInfo.jwt_parts}\n\n`;
+            
+            if (tokenInfo.valid_format) {
+                message += '✅ 基本的な形式チェック: 合格\n\n';
+                message += '💡 次のステップ:\n';
+                message += '　1️⃣ 「認証テスト」ボタンで実際の認証を確認\n';
+                message += '　2️⃣ 認証成功後、データ取得を実行\n';
+                showAlert(message, 'success', 12000);
+            } else {
+                // トークンが1500-2000文字で長さの警告だけの場合は情報として表示
+                const hasOnlyLengthIssue = tokenInfo.suspected_issues.length === 1 && 
+                    tokenInfo.suspected_issues[0].includes('長すぎます');
+                
+                if (hasOnlyLengthIssue && tokenInfo.length >= 1500 && tokenInfo.length <= 2500) {
+                    message += '✅ トークン形式は正常です\n\n';
+                    message += '💡 J-Quants APIのトークンは通常1500-2000文字です\n';
+                    message += '　1️⃣ 「認証テスト」ボタンで実際の認証を確認してください\n';
+                    showAlert(message, 'success', 12000);
+                } else {
+                    message += '❌ 形式の問題が検出されました:\n';
+                    tokenInfo.suspected_issues.forEach(issue => {
+                        message += `　❗ ${issue}\n`;
+                    });
+                    message += '\n💡 推奨対処法:\n';
+                    data.recommendations.forEach(rec => {
+                        message += `　${rec}\n`;
+                    });
+                    showAlert(message, 'warning', 15000);
+                }
+            }
+            
+        } else {
+            showAlert(`❌ トークン検証エラー: ${data.error}`, 'danger', 8000);
+        }
+    })
+    .catch(error => {
+        showAlert(`🔌 トークン検証中にエラーが発生しました: ${error.message}`, 'danger', 8000);
+        console.error('Token validation error:', error);
+    })
+    .finally(() => {
+        validateBtn.disabled = false;
+        validateBtn.innerHTML = originalText;
+    });
+}
+
+// 保存済みトークン状況の確認
+function checkSavedTokenStatus() {
+    fetch('/api/jquants-token/status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.data.has_saved_token) {
+                const expiry = data.data.expiry_info;
+                const statusDiv = document.getElementById('jquantsTokenStatus');
+                const contentDiv = document.getElementById('jquantsTokenStatusContent');
+                
+                let statusHtml = '';
+                let alertClass = 'alert-info';
+                
+                if (expiry.status === 'expired') {
+                    statusHtml = `
+                        <div class="text-danger">
+                            <i class="fas fa-times-circle me-2"></i>
+                            <strong>トークンが期限切れです</strong><br>
+                            新しいリフレッシュトークンを入力してください
+                        </div>
+                    `;
+                    alertClass = 'alert-danger';
+                } else if (expiry.status === 'expiring_soon') {
+                    statusHtml = `
+                        <div class="text-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>トークンが間もなく期限切れになります</strong><br>
+                            残り: ${expiry.hours_remaining}時間
+                        </div>
+                    `;
+                    alertClass = 'alert-warning';
+                } else if (expiry.status === 'warning') {
+                    statusHtml = `
+                        <div class="text-warning">
+                            <i class="fas fa-clock me-2"></i>
+                            <strong>トークンの更新が近づいています</strong><br>
+                            残り: ${expiry.days_remaining}日間
+                        </div>
+                    `;
+                    alertClass = 'alert-warning';
+                } else {
+                    statusHtml = `
+                        <div class="text-success">
+                            <i class="fas fa-check-circle me-2"></i>
+                            <strong>保存済みトークンが利用可能です</strong><br>
+                            残り有効期間: ${expiry.days_remaining}日間
+                        </div>
+                    `;
+                    alertClass = 'alert-success';
+                }
+                
+                statusDiv.querySelector('.alert').className = `alert ${alertClass}`;
+                contentDiv.innerHTML = statusHtml;
+                statusDiv.style.display = 'block';
+                
+                // 有効なトークンがある場合はトークン入力フィールドを自動設定
+                if (expiry.valid && data.data.token_info) {
+                    const refreshTokenField = document.getElementById('jquantsRefreshToken');
+                    if (!refreshTokenField.value) {
+                        // 保存済みトークンがあることを示すプレースホルダー
+                        refreshTokenField.placeholder = '✅ 保存済みトークンを使用 (自動入力済み)';
+                        refreshTokenField.style.backgroundColor = '#e8f5e8';
+                        refreshTokenField.style.border = '2px solid #28a745';
+                        
+                        // 実際のトークンを隠された属性として保存
+                        refreshTokenField.setAttribute('data-saved-token', 'true');
+                    }
+                }
+            }
+        })
+        .catch(error => {
+            console.log('保存済みトークン確認中にエラー:', error);
+        });
+}
+
+// トークン保存機能
+function saveJQuantsToken(refreshToken) {
+    if (!refreshToken) return;
+    
+    const saveToken = document.getElementById('jquantsSaveToken').checked;
+    if (!saveToken) return;
+    
+    fetch('/api/jquants-token/save', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            refresh_token: refreshToken,
+            plan_type: 'Standard',
+            user_identifier: 'default'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('✅ リフレッシュトークンを保存しました');
+            const expiry = data.expiry_info;
+            showAlert(`💾 リフレッシュトークンを保存しました\n\n⏰ 有効期限: ${expiry.days_remaining}日間\n\n💡 次回からは自動的にトークンが使用されます`, 'success', 8000);
+        } else {
+            console.error('❌ トークン保存エラー:', data.error);
+        }
+    })
+    .catch(error => {
+        console.error('トークン保存中にエラー:', error);
+    });
 }
 </script>
 {% endblock %}

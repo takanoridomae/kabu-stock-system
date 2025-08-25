@@ -528,3 +528,694 @@ def import_data():
             'success': False,
             'error': str(e)
         }), 500
+
+@api.route('/stock-data/fetch', methods=['POST'])
+def fetch_stock_data():
+    """株価・財務データの手動取得"""
+    try:
+        # 株価データ処理モジュールのインポート
+        from backend.utils.stock_batch_processor import StockBatchProcessor
+        
+        data = request.get_json()
+        force_update = data.get('force_update', False) if data else False
+        max_companies = data.get('max_companies') if data else None
+        specific_symbols = data.get('symbols', []) if data else []
+        
+        processor = StockBatchProcessor()
+        
+        # 特定の企業コードが指定された場合
+        if specific_symbols:
+            results = []
+            companies = []
+            
+            # 指定されたシンボルの企業情報を取得
+            for symbol in specific_symbols:
+                company = company_model.get_by_symbol(symbol)
+                if company:
+                    companies.append(dict(company))
+                else:
+                    results.append({
+                        'symbol': symbol,
+                        'status': 'error',
+                        'message': f'企業コード {symbol} は登録されていません'
+                    })
+            
+            # 見つかった企業を処理
+            for company in companies:
+                result = processor.process_company_data(company, force_update)
+                results.append(result)
+            
+            summary = {
+                'total': len(specific_symbols),
+                'found_companies': len(companies),
+                'success': sum(1 for r in results if r.get('status') == 'success'),
+                'error': sum(1 for r in results if r.get('status') == 'error'),
+                'skipped': sum(1 for r in results if r.get('status') == 'skipped')
+            }
+            
+            return jsonify({
+                'success': True,
+                'message': f'{len(specific_symbols)}件の企業データ取得処理が完了しました',
+                'summary': summary,
+                'details': results
+            })
+        
+        # 全企業の一括処理
+        else:
+            result = processor.process_all_companies(force_update, max_companies)
+            return jsonify(result)
+            
+    except ImportError as e:
+        return jsonify({
+            'success': False,
+            'error': '株価データ取得モジュールの読み込みに失敗しました',
+            'details': str(e)
+        }), 500
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@api.route('/stock-data/fetch/<symbol>', methods=['POST'])
+def fetch_single_stock_data(symbol):
+    """単一企業の株価・財務データ取得"""
+    try:
+        from backend.utils.stock_batch_processor import StockBatchProcessor
+        
+        data = request.get_json()
+        force_update = data.get('force_update', False) if data else False
+        
+        # 企業情報の確認
+        company = company_model.get_by_symbol(symbol)
+        if not company:
+            return jsonify({
+                'success': False,
+                'error': f'企業コード {symbol} は登録されていません'
+            }), 404
+        
+        processor = StockBatchProcessor()
+        result = processor.process_company_data(dict(company), force_update)
+        
+        return jsonify({
+            'success': result['status'] == 'success',
+            'message': result['message'],
+            'data': result
+        })
+        
+    except ImportError as e:
+        return jsonify({
+            'success': False,
+            'error': '株価データ取得モジュールの読み込みに失敗しました',
+            'details': str(e)
+        }), 500
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@api.route('/stock-data/status', methods=['GET'])
+def get_stock_data_status():
+    """株価データの更新状況を確認"""
+    try:
+        companies = company_model.search()
+        total_companies = len(companies)
+        
+        status_info = {
+            'total_companies': total_companies,
+            'companies_with_price_data': 0,
+            'companies_with_financial_data': 0,
+            'last_updated': None,
+            'companies_need_update': 0
+        }
+        
+        from datetime import datetime, timedelta
+        cutoff_date = datetime.now() - timedelta(days=1)
+        
+        for company in companies:
+            company_dict = dict(company)
+            company_id = company_dict['id']
+            
+            # 株価データの確認
+            latest_price = stock_price_model.get_latest_price(company_id)
+            if latest_price:
+                status_info['companies_with_price_data'] += 1
+                
+                price_date = datetime.fromisoformat(latest_price['price_date'])
+                if not status_info['last_updated'] or price_date > datetime.fromisoformat(status_info['last_updated']):
+                    status_info['last_updated'] = price_date.isoformat()
+                
+                if price_date.date() < cutoff_date.date():
+                    status_info['companies_need_update'] += 1
+            else:
+                status_info['companies_need_update'] += 1
+            
+            # 財務データの確認
+            financial_data = financial_metrics_model.get_latest_metrics(company_id)
+            if financial_data:
+                status_info['companies_with_financial_data'] += 1
+        
+        return jsonify({
+            'success': True,
+            'data': status_info
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@api.route('/jquants-data/fetch', methods=['POST'])
+def fetch_jquants_data():
+    """J-Quants API株価・財務データの手動取得"""
+    try:
+        # J-Quants株価データ処理モジュールのインポート
+        from backend.utils.jquants_batch_processor import JQuantsBatchProcessor
+        
+        data = request.get_json()
+        force_update = data.get('force_update', False) if data else False
+        max_companies = data.get('max_companies') if data else None
+        specific_symbols = data.get('symbols', []) if data else []
+        target_date = data.get('date') if data else None  # 特定日付の指定
+        
+        # 認証情報の取得（環境変数、リクエスト、または保存済みトークンから）
+        email = data.get('email') if data else None
+        password = data.get('password') if data else None
+        refresh_token = data.get('refresh_token') if data else None
+        
+        # 認証情報がない場合、保存済みトークンを自動使用
+        if not refresh_token and not (email and password):
+            logger.info("認証情報が提供されていません。保存済みトークンを使用します")
+        
+        processor = JQuantsBatchProcessor(email, password, refresh_token)
+        
+        # 特定の企業コードが指定された場合
+        if specific_symbols:
+            results = []
+            companies = []
+            
+            # 指定されたシンボルの企業情報を取得
+            for symbol in specific_symbols:
+                company = company_model.get_by_symbol(symbol)
+                if company:
+                    companies.append(dict(company))
+                else:
+                    results.append({
+                        'symbol': symbol,
+                        'status': 'error',
+                        'message': f'企業コード {symbol} は登録されていません'
+                    })
+            
+            # 見つかった企業を処理
+            for company in companies:
+                result = processor.process_company_data(company, force_update, target_date)
+                results.append(result)
+            
+            summary = {
+                'total': len(specific_symbols),
+                'found_companies': len(companies),
+                'success': sum(1 for r in results if r.get('status') == 'success'),
+                'error': sum(1 for r in results if r.get('status') == 'error'),
+                'skipped': sum(1 for r in results if r.get('status') == 'skipped')
+            }
+            
+            return jsonify({
+                'success': True,
+                'message': f'{len(specific_symbols)}件の企業データ取得処理が完了しました（J-Quants API使用）',
+                'summary': summary,
+                'details': results
+            })
+        
+        # 全企業の一括処理
+        else:
+            result = processor.process_all_companies(force_update, max_companies, target_date)
+            return jsonify(result)
+            
+    except ImportError as e:
+        return jsonify({
+            'success': False,
+            'error': 'J-Quants APIデータ取得モジュールの読み込みに失敗しました',
+            'details': str(e)
+        }), 500
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@api.route('/jquants-data/fetch/<symbol>', methods=['POST'])
+def fetch_single_jquants_data(symbol):
+    """単一企業のJ-Quants API株価・財務データ取得"""
+    try:
+        from backend.utils.jquants_batch_processor import JQuantsBatchProcessor
+        
+        data = request.get_json()
+        force_update = data.get('force_update', False) if data else False
+        target_date = data.get('date') if data else None
+        
+        # 認証情報の取得
+        email = data.get('email') if data else None
+        password = data.get('password') if data else None
+        refresh_token = data.get('refresh_token') if data else None
+        
+        # 企業情報の確認
+        company = company_model.get_by_symbol(symbol)
+        if not company:
+            return jsonify({
+                'success': False,
+                'error': f'企業コード {symbol} は登録されていません'
+            }), 404
+        
+        processor = JQuantsBatchProcessor(email, password, refresh_token)
+        result = processor.process_company_data(dict(company), force_update, target_date)
+        
+        return jsonify({
+            'success': result['status'] == 'success',
+            'message': result['message'],
+            'data': result
+        })
+        
+    except ImportError as e:
+        return jsonify({
+            'success': False,
+            'error': 'J-Quants APIデータ取得モジュールの読み込みに失敗しました',
+            'details': str(e)
+        }), 500
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@api.route('/jquants-data/status', methods=['GET'])
+def get_jquants_status():
+    """J-Quants APIの利用状況を確認"""
+    try:
+        from backend.utils.jquants_data_fetcher import JQuantsDataFetcher
+        
+        # 認証情報なしでステータスのみ確認
+        fetcher = JQuantsDataFetcher()
+        status = fetcher.get_api_status()
+        
+        return jsonify({
+            'success': True,
+            'data': status
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@api.route('/jquants-data/test-auth', methods=['POST'])
+def test_jquants_auth():
+    """J-Quants API認証テスト（デバッグ用）"""
+    try:
+        from backend.utils.jquants_data_fetcher import JQuantsDataFetcher
+        
+        data = request.get_json()
+        refresh_token = data.get('refresh_token')
+        email = data.get('email')
+        password = data.get('password')
+        
+        # 認証情報がない場合、保存済みトークンを自動使用
+        if not refresh_token and not (email and password):
+            logger.info("認証情報が提供されていません。保存済みトークンを使用します")
+        
+        # 認証テスト（空の場合は自動的に保存済みトークンを読み込み）
+        fetcher = JQuantsDataFetcher(email, password, refresh_token)
+        
+        # 初期化（認証）を実行
+        auth_result = fetcher._initialize_client()
+        
+        if auth_result:
+            # 認証成功時、簡単なデータ取得テストも実行
+            test_symbol = "7203"  # トヨタ
+            test_date = fetcher._get_latest_business_date()
+            
+            stock_data = fetcher._get_daily_quotes(test_symbol, test_date)
+            
+            return jsonify({
+                'success': True,
+                'message': 'J-Quants API認証成功',
+                'auth_status': {
+                    'authenticated': fetcher.is_authenticated,
+                    'id_token_length': len(fetcher.id_token) if fetcher.id_token else 0
+                },
+                'test_data': {
+                    'symbol': test_symbol,
+                    'date': test_date,
+                    'data_available': stock_data is not None,
+                    'data': stock_data if stock_data else None
+                }
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'J-Quants API認証に失敗しました',
+                'auth_status': {
+                    'authenticated': fetcher.is_authenticated,
+                    'id_token_length': 0
+                }
+            }), 401
+            
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': f'認証テスト中にエラーが発生しました: {str(e)}',
+            'traceback': traceback.format_exc()
+        }), 500
+
+@api.route('/jquants-data/validate-token', methods=['POST'])
+def validate_jquants_token():
+    """J-Quants APIリフレッシュトークンの形式チェック"""
+    try:
+        data = request.get_json()
+        refresh_token = data.get('refresh_token', '')
+        
+        # トークンの基本チェック
+        checks = {
+            'length': len(refresh_token),
+            'not_empty': bool(refresh_token.strip()),
+            'no_spaces': ' ' not in refresh_token,
+            'alphanumeric_check': refresh_token.replace('-', '').replace('_', '').isalnum(),
+            'min_length': len(refresh_token) >= 32,
+            'max_length': len(refresh_token) <= 512
+        }
+        
+        # J-Quants APIの実際の形式チェック（実測値に基づく）
+        suspected_issues = []
+        
+        if not checks['not_empty']:
+            suspected_issues.append('トークンが空です')
+        
+        if checks['length'] < 100:
+            suspected_issues.append('トークンが短すぎます（100文字未満）')
+        
+        if checks['length'] > 2500:
+            suspected_issues.append('トークンが長すぎます（2500文字超過）')
+        
+        if not checks['no_spaces']:
+            suspected_issues.append('トークンにスペースが含まれています')
+        
+        # J-Quants特有のJWT形式チェック
+        if not refresh_token.startswith('eyJ'):
+            suspected_issues.append('JWTトークンの開始文字列が正しくありません')
+        
+        # 一般的なJWTトークンの形式チェック
+        jwt_parts = refresh_token.count('.')
+        is_jwt_like = jwt_parts == 2
+        
+        return jsonify({
+            'success': True,
+            'token_info': {
+                'length': checks['length'],
+                'valid_format': len(suspected_issues) == 0,
+                'is_jwt_like': is_jwt_like,
+                'jwt_parts': jwt_parts + 1 if jwt_parts >= 0 else 0,
+                'first_20_chars': refresh_token[:20] if refresh_token else '',
+                'last_20_chars': refresh_token[-20:] if len(refresh_token) >= 20 else '',
+                'suspected_issues': suspected_issues,
+                'checks': checks
+            },
+            'recommendations': [
+                '1. J-Quants APIポータルサイトでリフレッシュトークンを再確認',
+                '2. コピー時にスペースや改行が入っていないか確認',
+                '3. トークンの有効期限（1週間）を確認',
+                '4. アカウントの利用制限状況を確認',
+                '5. トークンが1500-2000文字程度であることは正常です'
+            ]
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@api.route('/jquants-token/save', methods=['POST'])
+def save_jquants_token():
+    """J-Quants APIリフレッシュトークンを保存"""
+    try:
+        from backend.utils.token_manager import JQuantsTokenManager
+        
+        data = request.get_json()
+        refresh_token = data.get('refresh_token')
+        plan_type = data.get('plan_type', 'Standard')
+        user_identifier = data.get('user_identifier', 'default')
+        
+        if not refresh_token:
+            return jsonify({
+                'success': False,
+                'error': 'リフレッシュトークンが提供されていません'
+            }), 400
+        
+        token_manager = JQuantsTokenManager()
+        success = token_manager.save_refresh_token(refresh_token, user_identifier, plan_type)
+        
+        if success:
+            expiry_info = token_manager.check_token_expiry(user_identifier)
+            return jsonify({
+                'success': True,
+                'message': 'リフレッシュトークンを保存しました',
+                'expiry_info': expiry_info
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'トークンの保存に失敗しました'
+            }), 500
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@api.route('/jquants-token/status', methods=['GET'])
+def get_jquants_token_status():
+    """J-Quants APIトークンの状況を確認"""
+    try:
+        from backend.utils.token_manager import JQuantsTokenManager
+        
+        user_identifier = request.args.get('user_identifier', 'default')
+        token_manager = JQuantsTokenManager()
+        
+        # トークンの有効期限チェック
+        expiry_info = token_manager.check_token_expiry(user_identifier)
+        
+        # 保存されているトークン情報を取得
+        token_info = token_manager.get_refresh_token(user_identifier)
+        
+        result = {
+            'expiry_info': expiry_info,
+            'has_saved_token': token_info is not None
+        }
+        
+        if token_info:
+            result['token_info'] = {
+                'plan_type': token_info.get('plan_type'),
+                'created_at': token_info.get('created_at'),
+                'expires_at': token_info.get('expires_at'),
+                'last_used_at': token_info.get('last_used_at')
+            }
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@api.route('/files/list', methods=['GET'])
+def list_data_files():
+    """jsonfileディレクトリ内のファイル一覧を取得"""
+    try:
+        jsonfile_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'jsonfile')
+        
+        if not os.path.exists(jsonfile_dir):
+            return jsonify({
+                'success': True,
+                'data': [],
+                'message': 'jsonfileディレクトリが見つかりません'
+            })
+        
+        files = []
+        for filename in os.listdir(jsonfile_dir):
+            if filename.endswith('.json'):
+                filepath = os.path.join(jsonfile_dir, filename)
+                file_stats = os.stat(filepath)
+                
+                files.append({
+                    'filename': filename,
+                    'size': file_stats.st_size,
+                    'modified_date': datetime.fromtimestamp(file_stats.st_mtime).strftime('%Y-%m-%d %H:%M:%S'),
+                    'created_date': datetime.fromtimestamp(file_stats.st_ctime).strftime('%Y-%m-%d %H:%M:%S')
+                })
+        
+        # 更新日時でソート（新しい順）
+        files.sort(key=lambda x: x['modified_date'], reverse=True)
+        
+        return jsonify({
+            'success': True,
+            'data': files,
+            'count': len(files)
+        })
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@api.route('/files/load/<filename>', methods=['GET'])
+def load_data_file(filename):
+    """指定されたJSONファイルの内容を読み込み"""
+    try:
+        # セキュリティ: ファイル名の検証（パストラバーサル攻撃防止）
+        if not filename or '..' in filename or '/' in filename or '\\' in filename:
+            return jsonify({
+                'success': False,
+                'error': '無効なファイル名です'
+            }), 400
+        
+        if not filename.endswith('.json'):
+            return jsonify({
+                'success': False,
+                'error': 'JSONファイルのみ読み込み可能です'
+            }), 400
+        
+        jsonfile_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'jsonfile')
+        filepath = os.path.join(jsonfile_dir, filename)
+        
+        if not os.path.exists(filepath):
+            return jsonify({
+                'success': False,
+                'error': 'ファイルが見つかりません'
+            }), 404
+        
+        # ファイルサイズチェック（10MB制限）
+        file_size = os.path.getsize(filepath)
+        if file_size > 10 * 1024 * 1024:  # 10MB
+            return jsonify({
+                'success': False,
+                'error': 'ファイルサイズが大きすぎます（最大10MB）'
+            }), 413
+        
+        # JSONファイルを読み込み
+        with open(filepath, 'r', encoding='utf-8') as f:
+            file_content = json.load(f)
+        
+        # ファイル情報も含めて返す
+        file_stats = os.stat(filepath)
+        
+        return jsonify({
+            'success': True,
+            'data': file_content,
+            'file_info': {
+                'filename': filename,
+                'size': file_stats.st_size,
+                'modified_date': datetime.fromtimestamp(file_stats.st_mtime).strftime('%Y-%m-%d %H:%M:%S'),
+                'created_date': datetime.fromtimestamp(file_stats.st_ctime).strftime('%Y-%m-%d %H:%M:%S')
+            }
+        })
+    
+    except json.JSONDecodeError as e:
+        return jsonify({
+            'success': False,
+            'error': f'JSONファイルの解析に失敗しました: {str(e)}'
+        }), 400
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@api.route('/files/load-and-import/<filename>', methods=['POST'])
+def load_and_import_file(filename):
+    """ファイル読み込みと同時にデータベースにインポート"""
+    try:
+        # まずファイルを読み込み
+        load_response = load_data_file(filename)
+        load_data = json.loads(load_response.data)
+        
+        if not load_data['success']:
+            return load_response
+        
+        # インポート処理を実行
+        file_content = load_data['data']
+        
+        imported_counts = {}
+        
+        # 企業データのインポート
+        if 'companies' in file_content:
+            count = 0
+            for company_data in file_content['companies']:
+                try:
+                    company_model.create(
+                        company_data['symbol'], company_data['name'],
+                        company_data.get('sector', ''), company_data.get('market', '')
+                    )
+                    count += 1
+                except:
+                    # 重複の場合は更新
+                    existing = company_model.get_by_symbol(company_data['symbol'])
+                    if existing:
+                        company_model.update(existing['id'], **{
+                            k: v for k, v in company_data.items()
+                            if k in ['name', 'sector', 'market']
+                        })
+                        count += 1
+            imported_counts['companies'] = count
+        
+        # 株価データのインポート
+        if 'stock_prices' in file_content:
+            count = 0
+            for price_data in file_content['stock_prices']:
+                try:
+                    stock_price_model.create(
+                        price_data['company_id'], price_data['price'],
+                        price_data['price_date'], price_data.get('volume', 0)
+                    )
+                    count += 1
+                except:
+                    pass  # 重複は無視
+            imported_counts['stock_prices'] = count
+        
+        # 財務指標データのインポート
+        if 'financial_metrics' in file_content:
+            count = 0
+            for metrics_data in file_content['financial_metrics']:
+                try:
+                    metrics = {k: v for k, v in metrics_data.items() 
+                             if k in ['pbr', 'per', 'equity_ratio', 'roe', 'roa']}
+                    financial_metrics_model.create(
+                        metrics_data['company_id'],
+                        metrics_data['report_date'],
+                        **metrics
+                    )
+                    count += 1
+                except:
+                    pass  # 重複は無視
+            imported_counts['financial_metrics'] = count
+        
+        return jsonify({
+            'success': True,
+            'message': f'{filename} が正常に読み込まれ、データベースにインポートされました',
+            'file_info': load_data['file_info'],
+            'imported_counts': imported_counts
+        })
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
